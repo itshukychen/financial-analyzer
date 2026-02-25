@@ -1,50 +1,15 @@
 import PageHeader from './components/PageHeader';
-import StatCard from './components/StatCard';
 import PlaceholderWidget from './components/PlaceholderWidget';
-
-const marketStats = [
-  {
-    label: 'S&P 500',
-    value: '5,842.91',
-    delta: '+0.72%',
-    deltaDirection: 'up' as const,
-  },
-  {
-    label: 'NASDAQ 100',
-    value: '20,431.17',
-    delta: '+1.14%',
-    deltaDirection: 'up' as const,
-  },
-  {
-    label: 'DOW JONES',
-    value: '43,124.08',
-    delta: '-0.23%',
-    deltaDirection: 'down' as const,
-  },
-  {
-    label: 'VIX',
-    value: '18.42',
-    delta: '+2.35%',
-    deltaDirection: 'up' as const,
-  },
-];
+import MarketChartsWidget from './components/charts/MarketChartsWidget';
 
 export default function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Market Overview" />
 
-      {/* Stat Cards Row */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {marketStats.map((stat) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            delta={stat.delta}
-            deltaDirection={stat.deltaDirection}
-          />
-        ))}
+      {/* Live market charts — last 7 trading days */}
+      <div style={{ marginBottom: '24px' }}>
+        <MarketChartsWidget />
       </div>
 
       {/* 2-column widgets */}

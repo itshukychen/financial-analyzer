@@ -58,3 +58,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--border) var(--bg);
 }
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}

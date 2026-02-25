@@ -32,14 +32,8 @@ jobs:
   deploy:
     name: Deploy to production
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            bash /home/claw/repos/financial-analyzer/deploy.sh
+      - name: Run deploy script
+        run: bash /home/claw/repos/financial-analyzer/deploy.sh

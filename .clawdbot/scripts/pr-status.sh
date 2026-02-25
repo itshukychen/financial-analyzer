@@ -1,0 +1,1 @@
+/home/claw/.clawdbot/scripts/pr-status.sh

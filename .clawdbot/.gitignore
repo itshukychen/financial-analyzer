@@ -1,0 +1,6 @@
+# Don't commit agent logs or prompts with sensitive data
+logs/
+# Don't commit active tasks (runtime state)
+active-tasks.json
+# Keep scripts and prompts templates tracked
+!prompts/TEMPLATE.md

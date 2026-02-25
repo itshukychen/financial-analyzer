@@ -1,0 +1,1 @@
+/home/claw/.clawdbot/scripts/run-agent-claude.sh

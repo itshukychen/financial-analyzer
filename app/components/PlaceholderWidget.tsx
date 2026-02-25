@@ -11,6 +11,7 @@ export default function PlaceholderWidget({
 }: PlaceholderWidgetProps) {
   return (
     <div
+      data-testid="placeholder-widget"
       className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed gap-2 p-8"
       style={{
         borderColor: 'var(--border)',

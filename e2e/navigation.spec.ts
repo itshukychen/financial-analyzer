@@ -54,7 +54,8 @@ test.describe('Navigation', () => {
     const marketsLink = page.getByRole('link', { name: 'Markets' });
     await expect(marketsLink).toHaveClass(/active-nav-link/);
     const dashboardLink = page.getByRole('link', { name: 'Dashboard' });
-    await expect(dashboardLink).not.toHaveClass(/active-nav-link/);
+    // Use exact string — regex would false-positive on "inactive-nav-link"
+    await expect(dashboardLink).not.toHaveClass('active-nav-link');
   });
 
   test('stub pages show Coming soon placeholder', async ({ page }) => {

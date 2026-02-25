@@ -23,11 +23,8 @@ test.describe('Market Charts Widget', () => {
   });
 
   test('error state shown when a single API call fails', async ({ page }) => {
-    // Mock all but SPX to succeed; SPX returns 500
-    await page.route('**/api/market/chart/%5EGSPC', (route) =>
-      route.fulfill({ status: 500, body: JSON.stringify({ error: 'upstream timeout' }) })
-    );
-    // Mock others normally
+    // Register catch-all FIRST (Playwright is LIFO — last registered runs first)
+    // so the specific SPX 500 handler below will take priority for ^GSPC
     await page.route('**/api/market/chart/**', (route) => {
       const url = route.request().url();
       const ticker = url.split('/api/market/chart/')[1];
@@ -38,6 +35,10 @@ test.describe('Market Charts Widget', () => {
         route.continue();
       }
     });
+    // Register SPX error SECOND — this runs first for ^GSPC requests
+    await page.route('**/api/market/chart/%5EGSPC', (route) =>
+      route.fulfill({ status: 500, body: JSON.stringify({ error: 'upstream timeout' }) })
+    );
     await page.goto('/');
     // Other charts should still render
     await expect(page.getByText('14.00')).toBeVisible();

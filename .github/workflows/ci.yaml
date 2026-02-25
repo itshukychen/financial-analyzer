@@ -6,7 +6,9 @@ on:
     branches: [main]
 
 jobs:
+  # ── 1. Lint + Unit Tests + Build ─────────────────────────────────────────────
   test:
+    name: Lint, unit tests & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +18,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm test --if-present
+      - run: npm run test:coverage
       - run: npm run build
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
       - name: Check screenshot for UI changes
         if: github.event_name == 'pull_request'
         run: |
@@ -29,6 +37,7 @@ jobs:
             fi
           fi
 
+  # ── 2. Deploy to production (main only) ──────────────────────────────────────
   deploy:
     name: Deploy to production
     needs: test
@@ -37,3 +46,29 @@ jobs:
     steps:
       - name: Run deploy script
         run: bash /home/claw/repos/financial-analyzer/deploy.sh
+
+  # ── 3. E2E tests against live prod (main only, after deploy) ─────────────────
+  e2e:
+    name: E2E tests (Playwright / Chromium)
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright + system deps
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E tests against prod
+        run: npm run test:e2e
+        env:
+          BASE_URL: http://104.236.217.1:3000
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/

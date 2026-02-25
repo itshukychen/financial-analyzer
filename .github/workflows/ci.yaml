@@ -1,4 +1,5 @@
 name: ci
+
 on:
   pull_request:
   push:
@@ -29,3 +30,18 @@ jobs:
               exit 1
             fi
           fi
+
+  deploy:
+    name: Deploy to production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            bash /home/claw/repos/financial-analyzer/deploy.sh

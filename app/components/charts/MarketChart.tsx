@@ -170,13 +170,13 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
 
       {/* Chart area */}
       {loading ? (
-        <div style={{ height: '72px', background: 'var(--border)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div data-testid="chart-skeleton" style={{ height: '72px', background: 'var(--border)', borderRadius: '4px', animation: 'pulse 1.5s ease-in-out infinite' }} />
       ) : error ? (
-        <div style={{ height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div data-testid="chart-error" style={{ height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{error}</span>
         </div>
       ) : (
-        <div ref={containerRef} style={{ height: '72px', width: '100%' }} />
+        <div ref={containerRef} data-testid="chart-container" style={{ height: '72px', width: '100%' }} />
       )}
     </div>
   );

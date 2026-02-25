@@ -1,0 +1,1 @@
+/home/claw/.clawdbot/scripts/guardrails.sh

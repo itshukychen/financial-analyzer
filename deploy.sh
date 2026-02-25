@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Production deploy — always operates on the prod clone, never the dev workspace.
+# Triggered by the GitHub Actions self-hosted runner after CI passes on main.
+
+PROD_DIR="/home/claw/prod/financial-analyzer"
 SERVICE_NAME="financial-analyzer"
 
-echo "🚀 [deploy] Starting deployment at $(date)"
+echo "🚀 [deploy] Starting at $(date)"
+echo "📁 [deploy] Target: $PROD_DIR"
 
-cd "$REPO_DIR"
+cd "$PROD_DIR"
 
-echo "📥 [deploy] Pulling latest code..."
+echo "📥 [deploy] Pulling latest main..."
 git pull origin main
 
 echo "📦 [deploy] Installing dependencies..."

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'; // always render from DB, never statically cache
+
 import { getLatestReport, listReports } from '../../lib/db';
 import PageHeader        from '../components/PageHeader';
 import ReportHeader      from '../components/reports/ReportHeader';

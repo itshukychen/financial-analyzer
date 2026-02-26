@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'; // always render from DB, never statically cache
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getReportByDate } from '../../../lib/db';

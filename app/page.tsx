@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'; // reads from SQLite — must not be statically cached
+
 import Link from 'next/link';
 import PageHeader from './components/PageHeader';
 import PlaceholderWidget from './components/PlaceholderWidget';

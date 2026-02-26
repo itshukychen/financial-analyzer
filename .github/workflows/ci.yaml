@@ -60,12 +60,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Build app for E2E
+        run: npm run build
       - name: Install Playwright + system deps
         run: npx playwright install --with-deps chromium
-      - name: Run E2E tests against prod
+      - name: Run E2E tests
         run: npm run test:e2e
-        env:
-          BASE_URL: http://104.236.217.1:3000
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()

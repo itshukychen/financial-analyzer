@@ -28,19 +28,20 @@ interface MarketData {
   yield2y:  InstrumentData;
 }
 
-interface AnalysisSections {
-  equity:      string;
-  volatility:  string;
-  fixedIncome: string;
-  dollar:      string;
-  crossAsset:  string;
-  outlook:     string;
-}
-
-interface Analysis {
-  headline: string;
-  summary:  string;
-  sections: AnalysisSections;
+export interface Analysis {
+  headline:            string;   // one-line regime + key cross-asset observation (for dashboard widget)
+  regime: {
+    classification:    string;   // one of the 8 regime types
+    justification:     string;   // 2–3 sentences, cross-asset reasoning only
+  };
+  yieldCurve:          string;   // Step 2 full text
+  dollarLogic:         string;   // Step 3 full text
+  equityDiagnosis:     string;   // Step 4 full text
+  volatility:          string;   // Step 5 full text
+  crossAssetCheck:     string;   // Step 6 full text including table
+  forwardScenarios:    string;   // Step 7 full text — 3 scenarios
+  shortVolRisk:        string;   // Step 8 full text
+  regimeProbabilities: string;   // "Continuation X% | Reversal Y% | Acceleration Z%"
 }
 
 export interface DailyReport {
@@ -52,7 +53,7 @@ export interface DailyReport {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a senior macro analyst at a top-tier investment bank. You write precise, institutional-grade daily market reports. Your analysis is data-driven, concise, and draws clear cross-asset relationships. You avoid vague statements and always ground observations in the specific data provided.`;
+const SYSTEM_PROMPT = `You are a professional global macro trading desk analyst. You analyze cross-asset market data using only relative movements, yield curve logic, liquidity mechanics, and positioning analysis. You never reference headlines or news events. Your analysis is structured, precise, and causally rigorous. Always emphasize deltas not levels, rate spreads and liquidity dynamics over narratives.`;
 
 const isDryRun = process.argv.includes('--dry-run');
 
@@ -127,49 +128,142 @@ export async function fetchAllMarketData(): Promise<MarketData> {
 
 // ─── Prompt Building ─────────────────────────────────────────────────────────
 
-function formatTable(name: string, ticker: string, data: InstrumentData): string {
-  const today = data.points[data.points.length - 1].time;
-  const sign  = data.changePct >= 0 ? '+' : '';
-  const rows  = data.points
-    .map(p => {
-      const marker = p.time === today ? ' ← today' : '';
-      return `  ${p.time}  ${p.value.toFixed(2)}${marker}`;
-    })
-    .join('\n');
-
-  return `${name} (${ticker})\nDate        Close\n${rows}\n7-day change: ${sign}${data.changePct.toFixed(2)}%`;
-}
-
 export function buildPrompt(marketData: MarketData, today?: string): string {
-  const reportDate = today ?? marketData.spx.points[marketData.spx.points.length - 1].time;
+  const { spx, vix, dxy, yield10y, yield2y } = marketData;
+  const reportDate = today ?? spx.points[spx.points.length - 1].time;
 
-  const tables = [
-    formatTable('S&P 500',          '^GSPC',     marketData.spx),
-    formatTable('VIX',              '^VIX',      marketData.vix),
-    formatTable('US Dollar Index',  'DX-Y.NYB',  marketData.dxy),
-    formatTable('10Y Treasury Yield','^TNX',     marketData.yield10y),
-    formatTable('2Y Treasury Yield','DGS2',       marketData.yield2y),
-  ].join('\n\n');
+  // Helper: round to 1 decimal place
+  const r1 = (n: number): number => Math.round(n * 10) / 10;
+  // Helper: round to nearest integer (for bp values)
+  const ri = (n: number): number => Math.round(n);
+  // Helper: sign prefix ("+" for positive, "" for negative — negative numbers already have "-")
+  const sign = (n: number): string => n >= 0 ? '+' : '';
 
-  return `Here is today's end-of-day market data (last 7 trading days) as of ${reportDate}:
+  // ── SPX ──────────────────────────────────────────────────────────────────
+  const spxCur     = r1(spx.current);
+  const spx7dStart = r1(spx.points[0].value);
+  const spx7dPct   = r1(((spx.current - spx.points[0].value) / spx.points[0].value) * 100);
 
-${tables}
+  // ── VIX ──────────────────────────────────────────────────────────────────
+  const vixCur       = r1(vix.current);
+  const vixPrevClose = vix.current / (1 + vix.changePct / 100);
+  const vix1dAbs     = r1(vix.current - vixPrevClose);
+  const vix7dStart   = r1(vix.points[0].value);
+  const vix7dAbs     = r1(vix.current - vix.points[0].value);
 
----
+  // ── DXY ──────────────────────────────────────────────────────────────────
+  const dxyCur     = r1(dxy.current);
+  const dxy7dStart = r1(dxy.points[0].value);
+  const dxy7dPct   = r1(((dxy.current - dxy.points[0].value) / dxy.points[0].value) * 100);
 
-Provide a professional end-of-day macro analysis. Respond with ONLY valid JSON matching this exact schema:
+  // ── 2Y Treasury Yield ────────────────────────────────────────────────────
+  const y2Cur       = r1(yield2y.current);
+  const y2PrevClose = yield2y.current / (1 + yield2y.changePct / 100);
+  const y2_1dBp     = ri((yield2y.current - y2PrevClose) * 100);
+  const y2_7dStart  = r1(yield2y.points[0].value);
+  const y2_7dBp     = ri((yield2y.current - yield2y.points[0].value) * 100);
 
+  // ── 10Y Treasury Yield ───────────────────────────────────────────────────
+  const y10Cur       = r1(yield10y.current);
+  const y10PrevClose = yield10y.current / (1 + yield10y.changePct / 100);
+  const y10_1dBp     = ri((yield10y.current - y10PrevClose) * 100);
+  const y10_7dStart  = r1(yield10y.points[0].value);
+  const y10_7dBp     = ri((yield10y.current - yield10y.points[0].value) * 100);
+
+  // ── 2Y/10Y Spread ────────────────────────────────────────────────────────
+  const spreadBp         = ri((yield10y.current - yield2y.current) * 100);
+  const spread7dStartBp  = ri((yield10y.points[0].value - yield2y.points[0].value) * 100);
+  const spread7dChangeBp = ri(spreadBp - spread7dStartBp);
+  const spreadDirection  = spreadBp < 0 ? 'inverted' : 'normal';
+  const spreadTrend      = spread7dChangeBp >= 0 ? 'steepening' : 'flattening';
+
+  return `You are acting as a professional global macro trading desk. Analyze the following 7-day end-of-day market data using ONLY cross-asset relationships, yield curve logic, liquidity mechanics, and positioning analysis. Do NOT use any headlines or news events.
+
+MARKET DATA — ${reportDate}
+────────────────────────────────────────────
+S&P 500 (SPX)
+  Current:      ${spxCur}
+  1-day:        ${sign(spx.changePct)}${r1(spx.changePct)}%
+  7-day:        ${spx7dStart} → ${spxCur}  (${sign(spx7dPct)}${spx7dPct}%)
+
+VIX
+  Current:      ${vixCur}
+  1-day:        ${sign(vix1dAbs)}${vix1dAbs} pts
+  7-day:        ${vix7dStart} → ${vixCur}  (${sign(vix7dAbs)}${vix7dAbs} pts)
+
+DXY (US Dollar Index)
+  Current:      ${dxyCur}
+  1-day:        ${sign(dxy.changePct)}${r1(dxy.changePct)}%
+  7-day:        ${dxy7dStart} → ${dxyCur}  (${sign(dxy7dPct)}${dxy7dPct}%)
+
+2Y Treasury Yield
+  Current:      ${y2Cur}%
+  1-day:        ${sign(y2_1dBp)}${y2_1dBp}bp
+  7-day:        ${y2_7dStart}% → ${y2Cur}%  (${sign(y2_7dBp)}${y2_7dBp}bp)
+
+10Y Treasury Yield
+  Current:      ${y10Cur}%
+  1-day:        ${sign(y10_1dBp)}${y10_1dBp}bp
+  7-day:        ${y10_7dStart}% → ${y10Cur}%  (${sign(y10_7dBp)}${y10_7dBp}bp)
+
+2Y/10Y Spread
+  Current:      ${spreadBp}bp  (${spreadDirection})
+  7-day change: ${sign(spread7dChangeBp)}${spread7dChangeBp}bp  (${spreadTrend})
+────────────────────────────────────────────
+
+Follow these 8 analysis steps. Respond ONLY with valid JSON matching the exact schema below.
+
+REQUIRED ANALYSIS STEPS:
+
+Step 1 — Regime Classification
+Classify into ONE of: Growth scare | Inflation scare | Liquidity crisis | Soft landing / reflation | Policy pivot | Positioning unwind | Risk-on melt-up | Risk-off tightening
+Justify using cross-asset behavior only.
+
+Step 2 — Yield Curve Diagnosis
+Compare 2Y vs 10Y bp change. Classify: Bull steepener / Bear steepener / Bull flattener / Bear flattener.
+Interpret Fed expectations, growth expectations, inflation expectations, financial conditions.
+Focus on CHANGE not absolute levels.
+
+Step 3 — Dollar Logic
+Explain DXY move relative to yields, equities, and volatility.
+Classify driver: Rate differential | Liquidity preference | Political risk premium | Capital flow rotation | Positioning unwind
+
+Step 4 — Equity Move Diagnosis
+Classify move: Macro-confirmed | Positioning-driven | Gamma/volatility mechanics | Liquidity squeeze | Earnings repricing
+State whether bonds validated or rejected the equity move.
+
+Step 5 — Volatility Interpretation
+Explain why VIX moved, whether it signals structural stress or temporary hedging, whether vol expansion matches macro deterioration.
+
+Step 6 — Cross-Asset Consistency Check
+For each of SPX, VIX, DXY, 2Y, 10Y: state the signal and whether it confirms the macro thesis.
+If markets are diverging, identify which market is likely right and why.
+
+Step 7 — Forward Scenarios (Next 1–2 Weeks)
+Scenario 1 — Continuation: bonds must do X, dollar must do Y, vol must do Z, invalidated by W.
+Scenario 2 — Reversal: same structure.
+Scenario 3 — Acceleration: same structure.
+
+Step 8 — Risk for Short Vol / 1DTE Strategies
+Is this environment favorable for short gamma?
+What cross-asset signals warn of vol expansion?
+What structural risk exists?
+
+RESPOND ONLY WITH THIS JSON (no markdown fences, no extra text):
 {
-  "headline": "string — one sentence capturing the key market theme today",
-  "summary": "string — 2-3 sentence executive summary",
-  "sections": {
-    "equity": "string — SPX analysis: direction, momentum, context (2-3 paragraphs)",
-    "volatility": "string — VIX interpretation: fear/complacency reading, implications",
-    "fixedIncome": "string — 10Y + 2Y yield analysis, yield curve dynamics, Fed implications",
-    "dollar": "string — DXY analysis, implications for risk assets and global capital flows",
-    "crossAsset": "string — how these instruments moved together today, key relationships",
-    "outlook": "string — what to watch next, key risks and catalysts"
-  }
+  "headline": "one sentence: regime classification + single most important cross-asset observation",
+  "regime": {
+    "classification": "exact regime name from the list above",
+    "justification": "2–3 sentences using only cross-asset evidence"
+  },
+  "yieldCurve": "full Step 2 analysis — bp changes, curve type, Fed/growth/inflation/financial conditions implications",
+  "dollarLogic": "full Step 3 analysis — why DXY moved, driver type identified",
+  "equityDiagnosis": "full Step 4 analysis — move classification, whether bonds validated or rejected",
+  "volatility": "full Step 5 analysis — why VIX moved, structural vs temporary",
+  "crossAssetCheck": "full Step 6 — each asset: signal + confirms macro? Include any divergences.",
+  "forwardScenarios": "full Step 7 — all 3 scenarios with bonds/dollar/vol requirements and invalidation triggers",
+  "shortVolRisk": "full Step 8 — short gamma assessment, warning signals, structural risk",
+  "regimeProbabilities": "Continuation X% | Reversal Y% | Acceleration Z%"
 }`;
 }
 
@@ -202,8 +296,20 @@ export async function callClaude(prompt: string): Promise<Analysis> {
   }
 
   // Validate required fields
-  if (!analysis.headline || !analysis.summary || !analysis.sections) {
-    throw new Error('Claude response is missing required fields (headline, summary, sections)');
+  if (
+    !analysis.headline ||
+    !analysis.regime?.classification ||
+    !analysis.regime?.justification ||
+    !analysis.yieldCurve ||
+    !analysis.dollarLogic ||
+    !analysis.equityDiagnosis ||
+    !analysis.volatility ||
+    !analysis.crossAssetCheck ||
+    !analysis.forwardScenarios ||
+    !analysis.shortVolRisk ||
+    !analysis.regimeProbabilities
+  ) {
+    throw new Error('Claude response is missing required fields');
   }
 
   return analysis;

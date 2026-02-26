@@ -36,15 +36,15 @@ describe('buildPrompt', () => {
     expect(prompt.length).toBeGreaterThan(100);
   });
 
-  it('includes all 5 instrument names/tickers', () => {
+  it('includes all 5 instrument names', () => {
     const prompt = buildPrompt(MOCK_MARKET_DATA);
     expect(prompt).toContain('S&P 500');
-    expect(prompt).toContain('^GSPC');
+    expect(prompt).toContain('SPX');
     expect(prompt).toContain('VIX');
-    expect(prompt).toContain('Dollar');
+    expect(prompt).toContain('DXY');
+    expect(prompt).toContain('Dollar Index');
     expect(prompt).toContain('10Y Treasury Yield');
     expect(prompt).toContain('2Y Treasury Yield');
-    expect(prompt).toContain('DGS2');
   });
 
   it('includes today\'s date in the prompt header', () => {
@@ -60,37 +60,67 @@ describe('buildPrompt', () => {
     expect(prompt).toContain(lastDate);
   });
 
-  it('includes 7-day change percentages for each instrument', () => {
+  it('contains MARKET DATA header', () => {
     const prompt = buildPrompt(MOCK_MARKET_DATA);
-    // SPX: (5800 - 5600) / 5600 * 100 = +3.57%
-    expect(prompt).toContain('7-day change: +3.57%');
-    // VIX: (14 - 20) / 20 * 100 = -30.00%
-    expect(prompt).toContain('-30.00%');
+    expect(prompt).toContain('MARKET DATA');
   });
 
-  it('includes all data point dates in output', () => {
+  it('contains 2Y/10Y Spread section', () => {
     const prompt = buildPrompt(MOCK_MARKET_DATA);
-    for (const point of MOCK_MARKET_DATA.spx.points) {
-      expect(prompt).toContain(point.time);
+    expect(prompt).toContain('2Y/10Y Spread');
+  });
+
+  it('contains bp labels for yield changes', () => {
+    const prompt = buildPrompt(MOCK_MARKET_DATA);
+    expect(prompt).toContain('bp');
+  });
+
+  it('contains 7-day labels for instruments', () => {
+    const prompt = buildPrompt(MOCK_MARKET_DATA);
+    expect(prompt).toContain('7-day');
+  });
+
+  it('shows SPX start and current values in 7-day range', () => {
+    const prompt = buildPrompt(MOCK_MARKET_DATA);
+    // spx: 5600 → 5800
+    expect(prompt).toContain('5600');
+    expect(prompt).toContain('5800');
+  });
+
+  it('shows VIX drop (negative change)', () => {
+    const prompt = buildPrompt(MOCK_MARKET_DATA);
+    // vix: 20 → 14, -6 pts
+    expect(prompt).toContain('-6');
+  });
+
+  it('includes the new JSON schema with all required fields', () => {
+    const prompt = buildPrompt(MOCK_MARKET_DATA);
+    for (const field of [
+      '"headline"',
+      '"regime"',
+      '"yieldCurve"',
+      '"dollarLogic"',
+      '"equityDiagnosis"',
+      '"volatility"',
+      '"crossAssetCheck"',
+      '"forwardScenarios"',
+      '"shortVolRisk"',
+      '"regimeProbabilities"',
+    ]) {
+      expect(prompt).toContain(field);
     }
   });
 
-  it('includes the JSON schema in the prompt', () => {
+  it('includes all 8 analysis step headers', () => {
     const prompt = buildPrompt(MOCK_MARKET_DATA);
-    expect(prompt).toContain('"headline"');
-    expect(prompt).toContain('"summary"');
-    expect(prompt).toContain('"sections"');
-    expect(prompt).toContain('"equity"');
-    expect(prompt).toContain('"volatility"');
-    expect(prompt).toContain('"fixedIncome"');
-    expect(prompt).toContain('"dollar"');
-    expect(prompt).toContain('"crossAsset"');
-    expect(prompt).toContain('"outlook"');
+    for (let i = 1; i <= 8; i++) {
+      expect(prompt).toContain(`Step ${i}`);
+    }
   });
 
-  it('marks the latest data point with ← today', () => {
+  it('includes the instruction to respond with valid JSON', () => {
     const prompt = buildPrompt(MOCK_MARKET_DATA);
-    expect(prompt).toContain('← today');
+    expect(prompt).toContain('valid JSON');
   });
 
   it('handles instruments where all values are whole numbers', () => {
@@ -99,6 +129,6 @@ describe('buildPrompt', () => {
       vix: makeInstrument([20, 20, 20, 20, 20, 20, 20]),
     };
     const prompt = buildPrompt(data);
-    expect(prompt).toContain('7-day change: +0.00%');
+    expect(prompt).toContain('+0');
   });
 });

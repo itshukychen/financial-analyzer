@@ -17,14 +17,16 @@ function IconBond()   { return <svg width="14" height="14" viewBox="0 0 16 16" f
 function IconDollar() { return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M8 4v8M5.5 6.5A2.5 1.5 0 018 5a2.5 1.5 0 012.5 1.5A2.5 1.5 0 018 8a2.5 1.5 0 00-2.5 1.5A2.5 1.5 0 008 11a2.5 1.5 0 002.5-1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>; }
 function IconLink()   { return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 10l-2 2a2.83 2.83 0 000 4 2.83 2.83 0 004 0l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M10 6l2-2a2.83 2.83 0 000-4 2.83 2.83 0 00-4 0L6 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M9.5 6.5l-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>; }
 function IconEye()    { return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5"/></svg>; }
+function IconRisk()   { return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1l7 13H1L8 1z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M8 6v4M8 11.5h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>; }
 
 const SECTIONS = [
-  { key: 'equity'      as const, title: 'Equities',     icon: <IconChart /> },
-  { key: 'volatility'  as const, title: 'Volatility',   icon: <IconAlert /> },
-  { key: 'fixedIncome' as const, title: 'Fixed Income', icon: <IconBond />  },
-  { key: 'dollar'      as const, title: 'US Dollar',    icon: <IconDollar />},
-  { key: 'crossAsset'  as const, title: 'Cross-Asset',  icon: <IconLink />  },
-  { key: 'outlook'     as const, title: 'Outlook',      icon: <IconEye />   },
+  { key: 'yieldCurve'       as const, title: 'Yield Curve Diagnosis',        icon: <IconBond />   },
+  { key: 'dollarLogic'      as const, title: 'Dollar Logic',                  icon: <IconDollar /> },
+  { key: 'equityDiagnosis'  as const, title: 'Equity Move Diagnosis',         icon: <IconChart />  },
+  { key: 'volatility'       as const, title: 'Volatility Interpretation',     icon: <IconAlert />  },
+  { key: 'crossAssetCheck'  as const, title: 'Cross-Asset Consistency',       icon: <IconLink />   },
+  { key: 'forwardScenarios' as const, title: 'Forward Scenarios (1–2 Weeks)', icon: <IconEye />    },
+  { key: 'shortVolRisk'     as const, title: 'Short Vol / 1DTE Risk',         icon: <IconRisk />   },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -67,39 +69,40 @@ export default async function ReportDatePage({
         </Link>
       </div>
 
-      <ReportHeader
-        date={report.date}
-        generatedAt={report.generatedAt}
-        headline={report.analysis.headline}
-      />
-
-      {/* Executive summary */}
-      <div
-        className="rounded-xl border p-5 mb-6"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <p className="text-sm font-medium mb-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-          Executive Summary
-        </p>
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-          {report.analysis.summary}
-        </p>
-      </div>
+      <ReportHeader report={report} />
 
       {/* Data snapshot */}
       <DataSnapshot marketData={report.marketData} />
 
       {/* Analysis sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         {SECTIONS.map(({ key, title, icon }) => (
           <ReportSection
             key={key}
             title={title}
             icon={icon}
-            content={report.analysis.sections[key]}
+            content={report.analysis[key] as string}
           />
         ))}
       </div>
+
+      {/* Regime probabilities footer */}
+      {report.analysis.regimeProbabilities && (
+        <div
+          className="rounded-xl border p-4 mb-8"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <p
+            className="text-xs font-mono text-center"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span className="font-semibold uppercase tracking-wider mr-2" style={{ color: 'var(--text-secondary, var(--text-muted))' }}>
+              Regime Probabilities:
+            </span>
+            {report.analysis.regimeProbabilities}
+          </p>
+        </div>
+      )}
     </>
   );
 }

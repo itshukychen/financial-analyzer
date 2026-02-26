@@ -35,16 +35,19 @@ const MOCK_MARKET_DATA = {
 };
 
 const MOCK_ANALYSIS = {
-  headline: 'Markets Hit Record Highs',
-  summary:  'Equities surged amid macro optimism.',
-  sections: {
-    equity:      'SPX up strongly.',
-    volatility:  'VIX fell sharply.',
-    fixedIncome: 'Yields rose.',
-    dollar:      'DXY gained.',
-    crossAsset:  'Risk-on across the board.',
-    outlook:     'Watch CPI next week.',
+  headline: 'Risk-on melt-up: SPX surges as VIX collapses',
+  regime: {
+    classification: 'Risk-on melt-up',
+    justification: 'SPX +3.57% while VIX collapsed 30%, confirming broad risk appetite.',
   },
+  yieldCurve:          'Bear steepener: 10Y rose ~30bp over 7 days vs 2Y +20bp.',
+  dollarLogic:         'DXY firmed on rate differential.',
+  equityDiagnosis:     'Move is positioning-driven with macro confirmation.',
+  volatility:          'VIX collapse signals temporary hedging unwind.',
+  crossAssetCheck:     'SPX: Risk-on. VIX: Complacency. DXY: Mixed. 2Y: Stable. 10Y: Bear steepening.',
+  forwardScenarios:    'Continuation: bear steepening holds. Reversal: bull flattener. Acceleration: 10Y >4.7%.',
+  shortVolRisk:        'FAVORABLE for short gamma. Warning: 2Y spike >15bp.',
+  regimeProbabilities: 'Continuation 55% | Reversal 30% | Acceleration 15%',
 };
 
 const MOCK_SAVED_ROW = {

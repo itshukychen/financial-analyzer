@@ -1,8 +1,32 @@
+import type { DailyReport } from '@/scripts/generate-report';
+
 interface ReportHeaderProps {
-  date:        string;   // YYYY-MM-DD
-  generatedAt: string;   // ISO timestamp
-  headline:    string;
+  report: DailyReport;
 }
+
+// ─── Regime color mapping ─────────────────────────────────────────────────────
+
+type RegimeColor = 'red' | 'amber' | 'green' | 'blue';
+
+function getRegimeColor(classification: string): RegimeColor {
+  const danger  = ['Growth scare', 'Liquidity crisis', 'Risk-off tightening'];
+  const warning = ['Inflation scare', 'Positioning unwind'];
+  const positive = ['Soft landing / reflation', 'Risk-on melt-up'];
+
+  if (danger.includes(classification))   return 'red';
+  if (warning.includes(classification))  return 'amber';
+  if (positive.includes(classification)) return 'green';
+  return 'blue'; // Policy pivot + unknown
+}
+
+const REGIME_STYLES: Record<RegimeColor, React.CSSProperties> = {
+  red:   { background: 'rgba(239,68,68,0.12)',  color: '#ef4444', borderColor: '#ef4444' },
+  amber: { background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderColor: '#f59e0b' },
+  green: { background: 'rgba(34,197,94,0.12)',  color: '#22c55e', borderColor: '#22c55e' },
+  blue:  { background: 'rgba(99,102,241,0.12)', color: 'var(--accent)', borderColor: 'var(--accent)' },
+};
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function formatReportDate(dateStr: string): string {
   // Parse as UTC to avoid timezone shifts (dateStr is YYYY-MM-DD)
@@ -25,12 +49,29 @@ function formatGeneratedTime(iso: string): string {
   });
 }
 
-export default function ReportHeader({ date, generatedAt, headline }: ReportHeaderProps) {
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function ReportHeader({ report }: ReportHeaderProps) {
+  const { date, generatedAt, analysis } = report;
+  const { headline, regime } = analysis;
+  const regimeColor = getRegimeColor(regime.classification);
+  const regimeStyle = REGIME_STYLES[regimeColor];
+
   return (
     <div
       className="rounded-xl border p-6 mb-6"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
     >
+      {/* Regime classification badge */}
+      <div className="mb-3">
+        <span
+          className="inline-flex items-center text-xs font-bold px-3 py-1 rounded-full border uppercase tracking-widest"
+          style={regimeStyle}
+        >
+          {regime.classification}
+        </span>
+      </div>
+
       {/* Date chip + generated time */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <span
@@ -56,11 +97,19 @@ export default function ReportHeader({ date, generatedAt, headline }: ReportHead
 
       {/* Headline */}
       <h2
-        className="text-xl font-bold leading-snug tracking-tight"
+        className="text-xl font-bold leading-snug tracking-tight mb-3"
         style={{ color: 'var(--text-primary)' }}
       >
         {headline}
       </h2>
+
+      {/* Regime justification */}
+      <p
+        className="text-sm leading-relaxed"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {regime.justification}
+      </p>
     </div>
   );
 }

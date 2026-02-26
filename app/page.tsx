@@ -31,12 +31,22 @@ export default function DashboardPage() {
             >
               Daily Market Report
             </span>
-            <span
-              className="text-xs px-2 py-0.5 rounded-full border"
-              style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}
-            >
-              {date}
-            </span>
+            <div className="flex items-center gap-2">
+              {reportAnalysis.regime?.classification && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"
+                  style={{ color: 'var(--accent)', borderColor: 'var(--accent)', background: 'rgba(99,102,241,0.1)' }}
+                >
+                  {reportAnalysis.regime.classification}
+                </span>
+              )}
+              <span
+                className="text-xs px-2 py-0.5 rounded-full border"
+                style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}
+              >
+                {date}
+              </span>
+            </div>
           </div>
 
           <p
@@ -50,8 +60,8 @@ export default function DashboardPage() {
             className="text-xs leading-relaxed flex-1"
             style={{ color: 'var(--text-muted)' }}
           >
-            {reportAnalysis.summary?.slice(0, 200)}
-            {reportAnalysis.summary?.length > 200 ? '…' : ''}
+            {reportAnalysis.regime?.justification?.slice(0, 200)}
+            {reportAnalysis.regime?.justification?.length > 200 ? '…' : ''}
           </p>
 
           <Link

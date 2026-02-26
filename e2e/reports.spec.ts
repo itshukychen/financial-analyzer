@@ -7,7 +7,8 @@
  *
  * Fixture data (see playwright/global-setup.ts):
  *   date:     2026-02-26
- *   headline: "Equities Rally on Cooling Inflation Data"
+ *   regime:   "Risk-on melt-up"
+ *   headline: "Risk-on melt-up: SPX surges as VIX collapses..."
  */
 import { test, expect } from '@playwright/test';
 
@@ -19,7 +20,7 @@ test.describe('/reports page', () => {
 
   test('shows headline when report is available', async ({ page }) => {
     await page.goto('/reports');
-    await expect(page.getByText('Equities Rally on Cooling Inflation Data')).toBeVisible();
+    await expect(page.getByText('Risk-on melt-up')).toBeVisible(); // regime badge
   });
 
   test('shows the date chip when report is available', async ({ page }) => {
@@ -27,16 +28,15 @@ test.describe('/reports page', () => {
     await expect(page.getByText(/February.*2026/i)).toBeVisible();
   });
 
-  test('shows all 6 section titles when report is available', async ({ page }) => {
+  test('shows all 7 section titles when report is available', async ({ page }) => {
     await page.goto('/reports');
-    for (const title of ['Equities', 'Volatility', 'Fixed Income', 'US Dollar', 'Cross-Asset', 'Outlook']) {
+    for (const title of ['Yield Curve Diagnosis', 'Dollar Logic', 'Equity Move Diagnosis', 'Volatility Interpretation', 'Cross-Asset Consistency', 'Forward Scenarios', 'Short Vol / 1DTE Risk']) {
       await expect(page.getByText(title).first()).toBeVisible();
     }
   });
 
-  test('shows executive summary when report is available', async ({ page }) => {
+  test('shows regime justification when report is available', async ({ page }) => {
     await page.goto('/reports');
-    await expect(page.getByText('Executive Summary')).toBeVisible();
-    await expect(page.getByText(/Strong session across risk assets/)).toBeVisible();
+    await expect(page.getByText(/positioning-driven equity rally/i)).toBeVisible();
   });
 });

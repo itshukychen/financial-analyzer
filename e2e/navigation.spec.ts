@@ -65,3 +65,58 @@ test.describe('Navigation', () => {
     }
   });
 });
+
+test.describe('Mobile navigation', () => {
+  test.use({ viewport: { width: 390, height: 844 } }); // iPhone 14 Pro
+
+  test('hamburger button is visible on mobile', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: /open navigation/i })).toBeVisible();
+  });
+
+  test('sidebar is off-screen initially on mobile', async ({ page }) => {
+    await page.goto('/');
+    const aside = page.locator('aside');
+    // Sidebar has -translate-x-full when closed
+    await expect(aside).toHaveClass(/-translate-x-full/);
+  });
+
+  test('tapping hamburger opens the sidebar', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /open navigation/i }).click();
+    const aside = page.locator('aside');
+    await expect(aside).toHaveClass(/translate-x-0/);
+    await expect(aside).not.toHaveClass(/-translate-x-full/);
+  });
+
+  test('close button is visible when sidebar is open', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /open navigation/i }).click();
+    await expect(page.getByRole('button', { name: /close navigation/i })).toBeVisible();
+  });
+
+  test('tapping close button hides the sidebar', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /open navigation/i }).click();
+    await page.getByRole('button', { name: /close navigation/i }).click();
+    const aside = page.locator('aside');
+    await expect(aside).toHaveClass(/-translate-x-full/);
+  });
+
+  test('tapping a nav link closes the sidebar', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /open navigation/i }).click();
+    await page.getByRole('link', { name: 'Markets' }).click();
+    const aside = page.locator('aside');
+    await expect(aside).toHaveClass(/-translate-x-full/);
+  });
+
+  test('tapping backdrop closes the sidebar', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /open navigation/i }).click();
+    // Click the backdrop overlay (the dim area)
+    await page.locator('[aria-hidden="true"]').first().click({ position: { x: 300, y: 400 } });
+    const aside = page.locator('aside');
+    await expect(aside).toHaveClass(/-translate-x-full/);
+  });
+});

@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
 
 // Mock next/image
 vi.mock('next/image', () => ({
-  default: (_props: Record<string, unknown>) => null,
+  default: () => null,
 }));
 
 // Mock next/link — render as a plain anchor

@@ -20,6 +20,9 @@ export default defineConfig({
         'app/layout.tsx',
         'app/**/page.tsx',
         'app/types/**',
+        // Pure layout shells — no logic to unit-test, covered by E2E
+        'app/components/AppShell.tsx',
+        'app/components/TopBar.tsx',
       ],
       thresholds: {
         branches: 80,

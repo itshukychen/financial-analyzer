@@ -25,7 +25,8 @@ test.describe('Navigation', () => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Reports' }).click();
     await expect(page).toHaveURL('/reports');
-    await expect(page.locator('h1')).toContainText('Reports');
+    // h1 is "Daily Market Report" (not the old "Reports" stub heading)
+    await expect(page.locator('h1')).toContainText('Report');
   });
 
   test('navigating to /watchlist shows Watchlist page', async ({ page }) => {
@@ -65,7 +66,8 @@ test.describe('Navigation', () => {
   });
 
   test('stub pages show Coming soon placeholder', async ({ page }) => {
-    for (const path of ['/markets', '/reports', '/watchlist', '/alerts']) {
+    // /reports is now a real page — only remaining stubs show "Coming soon"
+    for (const path of ['/markets', '/watchlist', '/alerts']) {
       await page.goto(path);
       await expect(page.getByText('Coming soon').first()).toBeVisible();
     }

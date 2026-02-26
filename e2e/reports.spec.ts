@@ -20,7 +20,7 @@ test.describe('/reports page', () => {
 
   test('shows headline when report is available', async ({ page }) => {
     await page.goto('/reports');
-    await expect(page.getByText('Risk-on melt-up')).toBeVisible(); // regime badge
+    await expect(page.getByText('Risk-on melt-up').first()).toBeVisible(); // regime badge
   });
 
   test('shows the date chip when report is available', async ({ page }) => {

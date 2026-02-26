@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Navigation', () => {
+  // These tests click sidebar links directly — sidebar is always visible on desktop.
+  // Mobile-specific nav (hamburger open/close) is tested in the block below.
+  test.beforeEach(async ({ isMobile }, testInfo) => {
+    if (isMobile) testInfo.skip();
+  });
+
   test('all 5 nav links are present on the sidebar', async ({ page }) => {
     await page.goto('/');
     for (const label of ['Dashboard', 'Markets', 'Reports', 'Watchlist', 'Alerts']) {

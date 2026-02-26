@@ -1,0 +1,28 @@
+name: daily-report
+
+on:
+  schedule:
+    - cron: '30 22 * * 1-5'  # 5:30 PM ET (22:30 UTC), Mon–Fri
+  workflow_dispatch:           # Allow manual trigger
+
+jobs:
+  generate:
+    name: Generate daily market report
+    runs-on: self-hosted
+    steps:
+      - name: Generate report
+        run: |
+          cd /home/claw/prod/financial-analyzer
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
+          REPORT_SECRET=${{ secrets.REPORT_SECRET }} \
+          npx tsx scripts/generate-report.ts
+
+      - name: Verify report was saved
+        run: |
+          cd /home/claw/prod/financial-analyzer
+          npx tsx -e "
+            const { getLatestReport } = require('./lib/db');
+            const row = getLatestReport();
+            if (!row) { console.error('❌ No report found in DB'); process.exit(1); }
+            console.log('✅ Report saved for', row.date);
+          "

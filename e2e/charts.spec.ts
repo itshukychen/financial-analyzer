@@ -72,7 +72,7 @@ test.describe('Market Charts Widget', () => {
     await page.goto('/');
     await expect(page.getByText('S&P 500').first()).toBeVisible();
     await expect(page.getByText('5,800.00')).toBeVisible();
-    await expect(page.getByText('+3.57%')).toBeVisible();
+    await expect(page.getByText('+3.57%').first()).toBeVisible();
   });
 
   test('VIX card shows negative delta', async ({ page }) => {

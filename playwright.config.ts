@@ -8,8 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    // Use BASE_URL env var in CI (points to live prod), localhost otherwise
-    baseURL: process.env.BASE_URL ?? 'http://localhost:3000',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -17,5 +16,13 @@ export default defineConfig({
     { name: 'Desktop Chrome', use: { ...devices['Desktop Chrome'] } },
     { name: 'Mobile Chrome',  use: { ...devices['Pixel 5'] } },
   ],
-  // No webServer — we always run against the already-deployed prod server
+  // Start a local production server for E2E tests.
+  // In CI the E2E job builds the app first, then `npm start` serves it here.
+  // Locally, reuse an already-running dev server if one exists on :3000.
+  webServer: {
+    command: 'npm start',
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

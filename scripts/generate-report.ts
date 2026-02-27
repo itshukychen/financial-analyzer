@@ -177,7 +177,7 @@ export function buildPrompt(marketData: MarketData, today?: string): string {
   const spreadDirection  = spreadBp < 0 ? 'inverted' : 'normal';
   const spreadTrend      = spread7dChangeBp >= 0 ? 'steepening' : 'flattening';
 
-  return `You are acting as a professional global macro trading desk. Analyze the following 7-day end-of-day market data using ONLY cross-asset relationships, yield curve logic, liquidity mechanics, and positioning analysis. Do NOT use any headlines or news events.
+  return `You are acting as a professional global macro trading desk. Analyze the following market data (7-day history + today's opening session) using ONLY cross-asset relationships, yield curve logic, liquidity mechanics, and positioning analysis. Do NOT use any headlines or news events.
 
 MARKET DATA — ${reportDate}
 ────────────────────────────────────────────

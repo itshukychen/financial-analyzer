@@ -2,7 +2,7 @@ name: daily-report
 
 on:
   schedule:
-    - cron: '30 22 * * 1-5'  # 5:30 PM ET (22:30 UTC), Mon–Fri
+    - cron: '35 14 * * 1-5'  # 9:35 AM ET (14:35 UTC), Mon–Fri — captures overnight + opening move
   workflow_dispatch:           # Allow manual trigger
 
 jobs:

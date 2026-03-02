@@ -1,6 +1,7 @@
 'use client';
 
 import MarketChart from './MarketChart';
+import FearGreedWidget from './FearGreedWidget';
 
 const CHARTS = [
   {
@@ -33,11 +34,10 @@ const CHARTS = [
 
 export default function MarketChartsWidget() {
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-      gap: '12px',
-    }}>
+    <div
+      data-testid="market-charts-grid"
+      className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3"
+    >
       {CHARTS.map((c) => (
         <MarketChart
           key={c.ticker}
@@ -46,6 +46,7 @@ export default function MarketChartsWidget() {
           formatValue={c.formatValue}
         />
       ))}
+      <FearGreedWidget />
     </div>
   );
 }

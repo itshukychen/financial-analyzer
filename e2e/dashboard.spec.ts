@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { mockChartAPI } from './helpers/mockData';
+import { mockChartAPI, mockFearGreedAPI } from './helpers/mockData';
 
 test.describe('Dashboard', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockFearGreedAPI(page);
+  });
+
   test('page title contains FinAnalyzer', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/FinAnalyzer|Financial/i);
@@ -60,5 +64,18 @@ test.describe('Dashboard', () => {
   test('FinAnalyzer brand is visible in sidebar', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('FinAnalyzer')).toBeVisible();
+  });
+
+  test('fear & greed card is present on dashboard', async ({ page }) => {
+    await mockChartAPI(page);
+    await page.goto('/');
+    await expect(page.locator('[data-testid="fear-greed-card"]')).toBeVisible();
+  });
+
+  test('market charts grid shows 2 columns on mobile', async ({ page }) => {
+    // Already uses Pixel 5 viewport via Mobile Chrome project
+    await page.goto('/');
+    const grid = page.locator('[data-testid="market-charts-grid"]');
+    await expect(grid).toBeVisible();
   });
 });

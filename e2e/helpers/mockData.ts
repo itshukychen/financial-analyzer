@@ -86,6 +86,24 @@ export const MOCK_CHART_RESPONSES: Record<string, object> = {
   },
 };
 
+/** Intercept the Fear & Greed API and return deterministic mock data. */
+export async function mockFearGreedAPI(page: import('@playwright/test').Page) {
+  await page.route('**/api/fear-greed', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        score: 72,
+        rating: 'Greed',
+        previousClose: 70,
+        previous1Week: 65,
+        previous1Month: 45,
+        previous1Year: 60,
+        timestamp: '2026-02-27T14:35:00Z',
+      }),
+    }),
+  );
+}
+
 /** Intercept all chart API calls and return deterministic mock data. */
 export async function mockChartAPI(page: import('@playwright/test').Page) {
   await page.route('**/api/market/chart/**', (route) => {

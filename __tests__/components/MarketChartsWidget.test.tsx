@@ -11,6 +11,16 @@ const DATA_BY_TICKER: Record<string, object> = {
   'DGS2': { symbol: 'DGS2', name: '2Y Treasury Yield', points: [{ time: '2026-02-25', value: 4.1 }], current: 4.1, open: 3.8, change: 0.3, changePct: 7.89 },
 };
 
+const FEAR_GREED_MOCK = {
+  score: 72,
+  rating: 'Greed',
+  previousClose: 70,
+  previous1Week: 65,
+  previous1Month: 45,
+  previous1Year: 60,
+  timestamp: '2026-02-27T14:35:00Z',
+};
+
 function defaultMockData() {
   return {
     symbol: 'UNKNOWN',
@@ -27,7 +37,14 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((url: string) => {
-      // Match the ticker from the URL
+      // Fear & Greed widget fetch
+      if (url.includes('/api/fear-greed')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(FEAR_GREED_MOCK),
+        });
+      }
+      // Match the ticker from the chart URL
       const match = url.match(/\/api\/market\/chart\/(.+)$/);
       const ticker = match?.[1] ?? '';
       const data = DATA_BY_TICKER[ticker] ?? defaultMockData();
@@ -54,11 +71,11 @@ describe('MarketChartsWidget', () => {
     expect(screen.getByText('2Y Yield')).toBeInTheDocument();
   });
 
-  it('makes 5 fetch calls on mount', async () => {
+  it('makes 6 fetch calls on mount (5 charts + fear-greed)', async () => {
     const fetchMock = vi.mocked(global.fetch as ReturnType<typeof vi.fn>);
     render(<MarketChartsWidget />);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     });
   });
 

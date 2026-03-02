@@ -101,14 +101,9 @@ export default function DashboardPage() {
         <MarketChartsWidget />
       </div>
 
-      {/* 2-column widgets */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      {/* Full-width report widget */}
+      <div className="mb-4">
         {reportWidget}
-        <PlaceholderWidget
-          label="Watchlist"
-          description="Your tracked instruments and price targets"
-          minHeight="260px"
-        />
       </div>
 
       {/* Full-width widget */}

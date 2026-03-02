@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-export const revalidate = 900; // cache 15 min
+// NOTE: No route-level revalidate — we cache only the upstream CNN fetch
+// via next:{revalidate:900} in the fetch call below. Route-level caching
+// would cache error (502) responses too, making them sticky for 15 minutes.
 
 export interface FearGreedData {
   score:          number;   // 0–100

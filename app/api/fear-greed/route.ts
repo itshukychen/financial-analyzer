@@ -18,8 +18,11 @@ export async function GET() {
       'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',
       {
         headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Referer':    'https://www.cnn.com/markets/fear-and-greed',
+          'User-Agent':      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept':          'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer':         'https://www.cnn.com/markets/fear-and-greed',
+          'Origin':          'https://www.cnn.com',
         },
         next: { revalidate: 900 },
       }

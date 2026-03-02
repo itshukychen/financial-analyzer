@@ -24,12 +24,14 @@ function yahooResponse(closes: (number | null)[], baseTimestamp = 1_770_000_000)
   };
 }
 
-// Build a fake FRED CSV with dates within the last ~10 days (current date: 2026-02-25)
-// Dates from 2026-02-16 onward all pass the cutoff filter
-const RECENT_FRED_DATES = [
-  '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19', '2026-02-20',
-  '2026-02-21', '2026-02-22', '2026-02-23', '2026-02-24', '2026-02-25',
-];
+// Build fake FRED CSV dates dynamically so they always fall within the
+// route's 10-calendar-day cutoff window, regardless of when tests run.
+function recentDate(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+const RECENT_FRED_DATES = Array.from({ length: 10 }, (_, i) => recentDate(9 - i));
 
 function fredCSV(points: Array<{ date: string; value: string }>) {
   const header = 'DATE,VALUE';
@@ -175,18 +177,10 @@ describe('GET /api/market/chart/[ticker]', () => {
 
     it('GET with DGS2 — filters blank FRED values', async () => {
       // 10 recent dates, 2 have blank values ('') → 8 valid → slice(-7) → 7
-      const points = [
-        { date: '2026-02-16', value: '3.80' },
-        { date: '2026-02-17', value: '' },       // blank — should be filtered
-        { date: '2026-02-18', value: '3.90' },
-        { date: '2026-02-19', value: '' },       // blank — should be filtered
-        { date: '2026-02-20', value: '3.95' },
-        { date: '2026-02-21', value: '4.00' },
-        { date: '2026-02-22', value: '4.05' },
-        { date: '2026-02-23', value: '4.10' },
-        { date: '2026-02-24', value: '4.15' },
-        { date: '2026-02-25', value: '4.20' },
-      ];
+      const points = RECENT_FRED_DATES.map((date, i) => ({
+        date,
+        value: i === 1 || i === 3 ? '' : (3.80 + i * 0.05).toFixed(2), // blank indices 1 & 3
+      }));
       const csv = fredCSV(points);
       vi.stubGlobal('fetch', makeFetchMock({ text: () => Promise.resolve(csv) }));
 

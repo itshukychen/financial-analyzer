@@ -7,15 +7,11 @@ import type { DbInstance } from '@/lib/db';
 const TICKER_DATA = { spx: { current: 5800, changePct: 3.57, points: [] } };
 const REPORT_JSON = {
   headline: 'Markets Rally on Strong Data',
-  summary:  'Equities surged.',
-  sections: {
-    equity:      'SPX gained 1%.',
-    volatility:  'VIX fell.',
-    fixedIncome: 'Yields rose.',
-    dollar:      'DXY stable.',
-    crossAsset:  'Risk-on.',
-    outlook:     'Watch NFP.',
-  },
+  regime:   { classification: 'Soft landing / reflation', justification: 'Risk-on.' },
+  yieldCurve: 'Bull flattener.', dollarLogic: 'DXY stable.',
+  equityDiagnosis: 'Macro-confirmed.', volatility: 'VIX fell.',
+  crossAssetCheck: 'All assets confirm.', forwardScenarios: 'Continuation likely.',
+  shortVolRisk: 'Low risk.', regimeProbabilities: 'Continuation 60% | Reversal 30% | Acceleration 10%',
 };
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -48,9 +44,10 @@ describe('createDb factory', () => {
 
 describe('insertOrReplaceReport', () => {
   it('inserts a report and returns the saved row', () => {
-    const row = inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    const row = inst.insertOrReplaceReport('2026-02-26', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
     expect(row.id).toBeGreaterThan(0);
     expect(row.date).toBe('2026-02-26');
+    expect(row.period).toBe('eod');
     expect(row.model).toBe('claude-sonnet-4-5');
     expect(JSON.parse(row.ticker_data)).toEqual(TICKER_DATA);
     expect(JSON.parse(row.report_json)).toEqual(REPORT_JSON);
@@ -58,28 +55,34 @@ describe('insertOrReplaceReport', () => {
 
   it('sets generated_at as a unix timestamp (seconds)', () => {
     const before = Math.floor(Date.now() / 1000);
-    const row = inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    const row = inst.insertOrReplaceReport('2026-02-26', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
     const after = Math.floor(Date.now() / 1000);
     expect(row.generated_at).toBeGreaterThanOrEqual(before);
     expect(row.generated_at).toBeLessThanOrEqual(after);
   });
 
-  it('upserts — same date overwrites existing report', () => {
-    inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+  it('upserts — same date+period overwrites existing report', () => {
+    inst.insertOrReplaceReport('2026-02-26', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
 
     const newReport = { ...REPORT_JSON, headline: 'Updated Headline' };
-    const row = inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, newReport, 'claude-sonnet-4-5');
+    const row = inst.insertOrReplaceReport('2026-02-26', 'eod', TICKER_DATA, newReport, 'claude-sonnet-4-5');
 
     expect(JSON.parse(row.report_json).headline).toBe('Updated Headline');
-    // Should still be only 1 row
+    // Same date+period → still only 1 row
     expect(inst.listReports()).toHaveLength(1);
   });
 
-  it('allows multiple different dates', () => {
-    inst.insertOrReplaceReport('2026-02-24', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-25', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+  it('allows multiple periods for the same date', () => {
+    inst.insertOrReplaceReport('2026-02-26', 'morning', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'midday',  TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    expect(inst.listReports()).toHaveLength(3);
+  });
 
+  it('allows multiple different dates', () => {
+    inst.insertOrReplaceReport('2026-02-24', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-25', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'eod', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
     expect(inst.listReports()).toHaveLength(3);
   });
 });
@@ -89,29 +92,43 @@ describe('getLatestReport', () => {
     expect(inst.getLatestReport()).toBeNull();
   });
 
-  it('returns the most recent report by date', () => {
-    inst.insertOrReplaceReport('2026-02-24', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-25', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+  it('returns the most recently generated report', () => {
+    inst.insertOrReplaceReport('2026-02-24', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'morning', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-25', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
 
     const latest = inst.getLatestReport();
-    expect(latest?.date).toBe('2026-02-26');
+    // Last inserted = 2026-02-25 eod (most recent generated_at)
+    expect(latest?.date).toBe('2026-02-25');
+    expect(latest?.period).toBe('eod');
   });
 });
 
 describe('getReportByDate', () => {
   beforeEach(() => {
-    inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'morning', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
   });
 
   it('returns null for a date that does not exist', () => {
     expect(inst.getReportByDate('2099-01-01')).toBeNull();
   });
 
-  it('returns the correct row for an existing date', () => {
+  it('returns latest generated report when no period specified', () => {
     const row = inst.getReportByDate('2026-02-26');
     expect(row).not.toBeNull();
     expect(row?.date).toBe('2026-02-26');
+    // eod was inserted last → highest generated_at
+    expect(row?.period).toBe('eod');
+  });
+
+  it('returns the specific period when requested', () => {
+    const row = inst.getReportByDate('2026-02-26', 'morning');
+    expect(row?.period).toBe('morning');
+  });
+
+  it('returns null when the specified period does not exist for that date', () => {
+    expect(inst.getReportByDate('2026-02-26', 'midday')).toBeNull();
   });
 
   it('returns null for a date with different format', () => {
@@ -121,22 +138,24 @@ describe('getReportByDate', () => {
 
 describe('listReports', () => {
   beforeEach(() => {
-    inst.insertOrReplaceReport('2026-02-24', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-26', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
-    inst.insertOrReplaceReport('2026-02-25', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-24', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-26', 'morning', TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
+    inst.insertOrReplaceReport('2026-02-25', 'eod',     TICKER_DATA, REPORT_JSON, 'claude-sonnet-4-5');
   });
 
-  it('returns rows ordered by date DESC', () => {
+  it('returns rows ordered by generated_at DESC', () => {
     const rows = inst.listReports();
-    expect(rows[0].date).toBe('2026-02-26');
-    expect(rows[1].date).toBe('2026-02-25');
+    // Last inserted is 2026-02-25 eod
+    expect(rows[0].date).toBe('2026-02-25');
+    expect(rows[1].date).toBe('2026-02-26');
     expect(rows[2].date).toBe('2026-02-24');
   });
 
-  it('returns only id, date, generated_at, model columns (no raw JSON)', () => {
+  it('returns id, date, period, generated_at, model columns (no raw JSON)', () => {
     const row = inst.listReports()[0];
     expect(row).toHaveProperty('id');
     expect(row).toHaveProperty('date');
+    expect(row).toHaveProperty('period');
     expect(row).toHaveProperty('generated_at');
     expect(row).toHaveProperty('model');
     expect(row).not.toHaveProperty('ticker_data');

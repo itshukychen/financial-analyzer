@@ -21,16 +21,17 @@ vi.mock('@/lib/db', () => ({
 const MOCK_ROW: ReportRow = {
   id:           1,
   date:         '2026-02-26',
+  period:       'eod',
   generated_at: 1_740_614_700,
   model:        'claude-sonnet-4-5',
   ticker_data:  JSON.stringify({ spx: { current: 5800, changePct: 3.57, points: [] } }),
-  report_json:  JSON.stringify({ headline: 'Test Headline', summary: 'Summary.', sections: {} }),
+  report_json:  JSON.stringify({ headline: 'Test Headline', regime: { classification: 'Soft landing / reflation', justification: 'Risk-on.' } }),
 };
 
 const MOCK_LIST = [
-  { id: 3, date: '2026-02-26', generated_at: 1_740_614_700, model: 'claude-sonnet-4-5' },
-  { id: 2, date: '2026-02-25', generated_at: 1_740_528_300, model: 'claude-sonnet-4-5' },
-  { id: 1, date: '2026-02-24', generated_at: 1_740_441_900, model: 'claude-sonnet-4-5' },
+  { id: 3, date: '2026-02-26', period: 'eod'     as const, generated_at: 1_740_614_700, model: 'claude-sonnet-4-5' },
+  { id: 2, date: '2026-02-25', period: 'midday'  as const, generated_at: 1_740_528_300, model: 'claude-sonnet-4-5' },
+  { id: 1, date: '2026-02-24', period: 'morning' as const, generated_at: 1_740_441_900, model: 'claude-sonnet-4-5' },
 ];
 
 // ─── GET /api/reports ─────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ describe('GET /api/reports/[date]', () => {
     const body = await res.json();
     expect(body.id).toBe(1);
     expect(body.date).toBe('2026-02-26');
+    expect(body.period).toBe('eod');
     expect(body.analysis.headline).toBe('Test Headline');
     expect(body.marketData).toEqual({ spx: { current: 5800, changePct: 3.57, points: [] } });
   });
@@ -137,6 +139,6 @@ describe('GET /api/reports/[date]', () => {
       new Request('http://localhost/api/reports/2026-02-26'),
       { params: Promise.resolve({ date: '2026-02-26' }) },
     );
-    expect(vi.mocked(getReportByDate)).toHaveBeenCalledWith('2026-02-26');
+    expect(vi.mocked(getReportByDate)).toHaveBeenCalledWith('2026-02-26', undefined);
   });
 });

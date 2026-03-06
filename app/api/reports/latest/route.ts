@@ -9,6 +9,7 @@ export async function GET() {
   return NextResponse.json({
     id:          row.id,
     date:        row.date,
+    period:      row.period,
     generatedAt: row.generated_at,
     model:       row.model,
     marketData:  JSON.parse(row.ticker_data),

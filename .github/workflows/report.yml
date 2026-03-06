@@ -2,27 +2,57 @@ name: daily-report
 
 on:
   schedule:
-    - cron: '35 14 * * 1-5'  # 9:35 AM ET (14:35 UTC), Mon–Fri — captures overnight + opening move
+    # All times UTC. Market hours are ET (EST=UTC-5, EDT=UTC-4).
+    # Times chosen to stay within trading hours year-round despite DST drift.
+    - cron: '35 14 * * 1-5'  # Morning  — 9:35 AM EST / 10:35 AM EDT  (after open)
+    - cron: '0 18 * * 1-5'   # Midday   — 1:00 PM EST /  2:00 PM EDT  (mid-session)
+    - cron: '15 21 * * 1-5'  # Close    — 4:15 PM EST /  5:15 PM EDT  (after close)
   workflow_dispatch:           # Allow manual trigger
+    inputs:
+      period:
+        description: 'Report period (morning | midday | eod)'
+        required: false
+        default: 'eod'
 
 jobs:
   generate:
-    name: Generate daily market report
+    name: Generate market report
     runs-on: self-hosted
     steps:
+      - name: Determine period from schedule
+        id: period
+        run: |
+          # Manual trigger: use input value
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.period }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Schedule trigger: detect period from current UTC hour
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" = "14" ]; then
+            echo "value=morning" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "18" ]; then
+            echo "value=midday" >> $GITHUB_OUTPUT
+          else
+            echo "value=eod" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate report
         run: |
           cd /home/claw/prod/financial-analyzer
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
           REPORT_SECRET=${{ secrets.REPORT_SECRET }} \
+          REPORT_PERIOD=${{ steps.period.outputs.value }} \
           npx tsx scripts/generate-report.ts
 
       - name: Verify report was saved
         run: |
           cd /home/claw/prod/financial-analyzer
+          PERIOD=${{ steps.period.outputs.value }}
           npx tsx -e "
-            const { getLatestReport } = require('./lib/db');
-            const row = getLatestReport();
-            if (!row) { console.error('❌ No report found in DB'); process.exit(1); }
-            console.log('✅ Report saved for', row.date);
+            const { listReports } = require('./lib/db');
+            const rows = listReports(1);
+            if (!rows.length) { console.error('❌ No report found in DB'); process.exit(1); }
+            console.log('✅ Report saved:', rows[0].date, '[' + rows[0].period + ']');
           "

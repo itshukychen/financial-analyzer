@@ -53,6 +53,7 @@ const MOCK_ANALYSIS = {
 const MOCK_SAVED_ROW = {
   id:           42,
   date:         '2026-02-26',
+  period:       'eod' as const,
   generated_at: 1_740_614_700,
   model:        'claude-sonnet-4-5',
   ticker_data:  JSON.stringify(MOCK_MARKET_DATA),
@@ -136,10 +137,12 @@ describe('POST /api/reports/generate', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.date).toBe('2026-02-26');
+    expect(body.period).toBe('eod');
     expect(body.id).toBe(42);
 
     expect(vi.mocked(insertOrReplaceReport)).toHaveBeenCalledWith(
       '2026-02-26',
+      'eod',
       MOCK_MARKET_DATA,
       MOCK_ANALYSIS,
       'claude-sonnet-4-5',

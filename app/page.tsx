@@ -4,7 +4,7 @@ import Link from 'next/link';
 import PageHeader from './components/PageHeader';
 import PlaceholderWidget from './components/PlaceholderWidget';
 import MarketChartsWidget from './components/charts/MarketChartsWidget';
-import { getLatestReport } from '../lib/db';
+import { getLatestReport, PERIOD_LABELS } from '../lib/db';
 
 export default function DashboardPage() {
   let reportWidget: React.ReactNode;
@@ -31,13 +31,21 @@ export default function DashboardPage() {
             >
               Daily Market Report
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {reportAnalysis.regime?.classification && (
                 <span
                   className="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--accent)', borderColor: 'var(--accent)', background: 'rgba(99,102,241,0.1)' }}
                 >
                   {reportAnalysis.regime.classification}
+                </span>
+              )}
+              {latestReport.period && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"
+                  style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', background: 'rgba(99,102,241,0.06)' }}
+                >
+                  {PERIOD_LABELS[latestReport.period]}
                 </span>
               )}
               <span

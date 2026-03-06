@@ -5,7 +5,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { insertOrReplaceReport } from '../lib/db';
+import { insertOrReplaceReport, type ReportPeriod } from '../lib/db';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,20 @@ export interface DailyReport {
 const SYSTEM_PROMPT = `You are a professional global macro trading desk analyst. You analyze cross-asset market data using only relative movements, yield curve logic, liquidity mechanics, and positioning analysis. You never reference headlines or news events. Your analysis is structured, precise, and causally rigorous. Always emphasize deltas not levels, rate spreads and liquidity dynamics over narratives.`;
 
 const isDryRun = process.argv.includes('--dry-run');
+
+// Period: --period morning|midday|eod  OR  REPORT_PERIOD env var  OR  default 'eod'
+function parsePeriod(): ReportPeriod {
+  const argIdx = process.argv.indexOf('--period');
+  const arg    = argIdx !== -1 ? process.argv[argIdx + 1] : undefined;
+  const val    = arg ?? process.env.REPORT_PERIOD ?? 'eod';
+  if (val !== 'morning' && val !== 'midday' && val !== 'eod') {
+    console.warn(`⚠️  Unknown period "${val}", defaulting to "eod"`);
+    return 'eod';
+  }
+  return val;
+}
+
+const PERIOD = parsePeriod();
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
@@ -317,20 +331,21 @@ export async function callClaude(prompt: string): Promise<Analysis> {
 
 // ─── Save Report ─────────────────────────────────────────────────────────────
 
-function saveReport(report: DailyReport): void {
+function saveReport(report: DailyReport, period: ReportPeriod): void {
   insertOrReplaceReport(
     report.date,
+    period,
     report.marketData,
     report.analysis,
     'claude-sonnet-4-5',
   );
-  console.log(`💾 Saved report for ${report.date} to SQLite`);
+  console.log(`💾 Saved report for ${report.date} [${period}] to SQLite`);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n🚀 Daily Market Report Generator ${isDryRun ? '(DRY RUN)' : ''}\n`);
+  console.log(`\n🚀 Daily Market Report Generator [${PERIOD}] ${isDryRun ? '(DRY RUN)' : ''}\n`);
 
   let marketData: MarketData;
   try {
@@ -367,13 +382,13 @@ async function main() {
   };
 
   try {
-    saveReport(report);
+    saveReport(report, PERIOD);
   } catch (err) {
     console.error(`❌ Failed to save report: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
   }
 
-  console.log(`\n✅ Report generated for ${today}`);
+  console.log(`\n✅ Report generated for ${today} [${PERIOD}]`);
   console.log(`   Headline: ${analysis.headline}`);
 }
 

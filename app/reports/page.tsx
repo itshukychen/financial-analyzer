@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'; // always render from DB, never statically cache
 
-import { getLatestReport, listReports } from '../../lib/db';
+import { getLatestReport, listReports, PERIOD_LABELS, type ReportPeriod } from '../../lib/db';
 import PageHeader        from '../components/PageHeader';
 import ReportHeader      from '../components/reports/ReportHeader';
 import ReportSection     from '../components/reports/ReportSection';
@@ -19,24 +19,45 @@ function IconRisk()   { return <svg width="14" height="14" viewBox="0 0 16 16" f
 
 // ─── Data loading (server-side, direct SQLite read) ───────────────────────────
 
-function loadLatestReport(): DailyReport | null {
+interface LatestReportResult {
+  report: DailyReport;
+  period: ReportPeriod;
+}
+
+function loadLatestReport(): LatestReportResult | null {
   try {
     const row = getLatestReport();
     if (!row) return null;
     return {
-      date:        row.date,
-      generatedAt: new Date(row.generated_at * 1000).toISOString(),
-      marketData:  JSON.parse(row.ticker_data),
-      analysis:    JSON.parse(row.report_json),
-    } as DailyReport;
+      period: row.period,
+      report: {
+        date:        row.date,
+        generatedAt: new Date(row.generated_at * 1000).toISOString(),
+        marketData:  JSON.parse(row.ticker_data),
+        analysis:    JSON.parse(row.report_json),
+      } as DailyReport,
+    };
   } catch {
     return null;
   }
 }
 
-function loadArchiveDates(): string[] {
+// Returns reports grouped by date: { date, periods: [{period, generated_at}] }[]
+interface ArchiveEntry {
+  date:    string;
+  periods: { period: ReportPeriod; generated_at: number }[];
+}
+
+function loadArchive(skipDate?: string): ArchiveEntry[] {
   try {
-    return listReports().map(r => r.date);
+    const rows = listReports(150);
+    const map  = new Map<string, ArchiveEntry>();
+    for (const r of rows) {
+      if (r.date === skipDate) continue;
+      if (!map.has(r.date)) map.set(r.date, { date: r.date, periods: [] });
+      map.get(r.date)!.periods.push({ period: r.period, generated_at: r.generated_at });
+    }
+    return Array.from(map.values());
   } catch {
     return [];
   }
@@ -57,8 +78,10 @@ const SECTIONS = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
-  const report       = loadLatestReport();
-  const archiveDates = loadArchiveDates();
+  const latest  = loadLatestReport();
+  const report  = latest?.report ?? null;
+  const period  = latest?.period;
+  const archive = loadArchive(report?.date);
 
   return (
     <>
@@ -88,7 +111,7 @@ export default function ReportsPage() {
       ) : (
         /* ── Report UI ── */
         <>
-          <ReportHeader report={report} />
+          <ReportHeader report={report} period={period} />
 
           {/* Data snapshot */}
           <DataSnapshot marketData={report.marketData} />
@@ -124,28 +147,36 @@ export default function ReportsPage() {
           )}
 
           {/* Archive */}
-          {archiveDates.length > 1 && (
+          {archive.length > 0 && (
             <div
               className="rounded-xl border p-5"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
             >
-              <p className="text-sm font-semibold mb-3 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm font-semibold mb-4 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 Past Reports
               </p>
-              <ul className="flex flex-wrap gap-2">
-                {archiveDates.slice(1).map(date => (
-                  <li key={date}>
-                    <a
-                      href={`/reports/${date}`}
-                      className="text-xs px-3 py-1 rounded-full border transition-colors"
-                      style={{
-                        color:       'var(--text-muted)',
-                        borderColor: 'var(--border)',
-                        background:  'rgba(30,30,46,0.4)',
-                      }}
-                    >
-                      {date}
-                    </a>
+              <ul className="flex flex-col gap-3">
+                {archive.map(entry => (
+                  <li key={entry.date} className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-mono w-24 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      {entry.date}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entry.periods.map(({ period: p }) => (
+                        <a
+                          key={p}
+                          href={`/reports/${entry.date}?period=${p}`}
+                          className="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+                          style={{
+                            color:       'var(--text-muted)',
+                            borderColor: 'var(--border)',
+                            background:  'rgba(30,30,46,0.4)',
+                          }}
+                        >
+                          {PERIOD_LABELS[p]}
+                        </a>
+                      ))}
+                    </div>
                   </li>
                 ))}
               </ul>

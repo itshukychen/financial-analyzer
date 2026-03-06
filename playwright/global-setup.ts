@@ -20,9 +20,9 @@ const FIXTURE_ANALYSIS = {
   dollarLogic: 'DXY firmed +2.88% on rate differential: 10Y yield rising faster than peers, attracting capital inflows. Dollar strength is NOT liquidity-crisis driven — equities rising alongside DXY confirms capital flow rotation, not safe-haven bid.',
   equityDiagnosis: 'Move is positioning-driven with macro confirmation. SPX +3.57% while VIX -30% suggests short-covering and systematic re-risking. Bonds partially validated: 10Y rising alongside equities is a growth signal, not a risk-off signal. Equity move is NOT contradicted by rates.',
   volatility: 'VIX collapse from 20 to 14 signals temporary hedging unwind, not structural deterioration. The magnitude (-30%) over 7 days implies forced put unwind or dealer gamma flipping long. No structural stress indicator — credit spreads would need to confirm any regime change.',
-  crossAssetCheck: 'SPX: Risk-on signal — confirms macro (growth re-acceleration). VIX: Complacency signal — confirms macro (hedges being stripped). DXY: Mixed — rate differential bullish, but dollar strength caps equity upside for multinationals. 2Y: Stable — Fed pricing unchanged, confirms no policy pivot imminent. 10Y: Bear steepening — confirms growth expectations rising. No major divergences. The dollar is the only partial contradiction but is explained by rate differentials.',
-  forwardScenarios: 'Continuation: Bonds must continue bear steepening (10Y > 2Y move), DXY holds 106-108 range, VIX stays below 16. Invalidated by: sudden 2Y spike (Fed repricing) or credit event. Reversal: 10Y must rally (bull flattener), DXY must drop, VIX must spike above 20. Invalidated by: continued strong data. Acceleration: 10Y breaks higher >4.7%, DXY surges >108, VIX re-spikes as equities reprice rates. Invalidated by: Fed dovish surprise.',
-  shortVolRisk: 'Environment is FAVORABLE for short gamma in the near-term: VIX at 14 with collapsing realized vol, systematic re-risking in progress. Warning signals: any 2Y spike >15bp in a session (Fed repricing), DXY breakdown <105 (risk-off rotation), SPX gap below 5700 (systematic selling trigger). Structural risk: dealer gamma positioning may flip negative below 5650 SPX, creating self-reinforcing selling.',
+  crossAssetCheck: 'SPX: Risk-on signal — confirms macro (growth re-acceleration). VIX: Complacency signal — confirms macro (hedges being stripped). DXY: Mixed — rate differential bullish, but dollar strength caps equity upside for multinationals. 2Y: Stable — Fed pricing unchanged, confirms no policy pivot imminent. 10Y: Bear steepening — confirms growth expectations rising. No major divergences.',
+  forwardScenarios: 'Continuation: Bonds must continue bear steepening (10Y > 2Y move), DXY holds 106-108 range, VIX stays below 16. Invalidated by: sudden 2Y spike (Fed repricing) or credit event. Reversal: 10Y must rally (bull flattener), DXY must drop, VIX must spike above 20. Invalidated by: continued strong data. Acceleration: 10Y breaks higher >4.7%, DXY surges >108.',
+  shortVolRisk: 'Environment is FAVORABLE for short gamma in the near-term: VIX at 14 with collapsing realized vol, systematic re-risking in progress. Warning signals: any 2Y spike >15bp in a session (Fed repricing), DXY breakdown <105 (risk-off rotation).',
   regimeProbabilities: 'Continuation 55% | Reversal 30% | Acceleration 15%',
 };
 
@@ -42,28 +42,32 @@ async function globalSetup() {
 
   const db = new Database(dbPath);
 
+  // v2 schema: UNIQUE(date, period)
   db.exec(`
     CREATE TABLE IF NOT EXISTS reports (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      date         TEXT    NOT NULL UNIQUE,
+      date         TEXT    NOT NULL,
+      period       TEXT    NOT NULL DEFAULT 'eod',
       generated_at INTEGER NOT NULL,
       ticker_data  TEXT    NOT NULL,
       report_json  TEXT    NOT NULL,
-      model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5'
+      model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5',
+      UNIQUE(date, period)
     );
-    CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC, period ASC);
   `);
 
   db.prepare(`
-    INSERT INTO reports (date, generated_at, ticker_data, report_json, model)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(date) DO UPDATE SET
+    INSERT INTO reports (date, period, generated_at, ticker_data, report_json, model)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(date, period) DO UPDATE SET
       generated_at = excluded.generated_at,
       ticker_data  = excluded.ticker_data,
       report_json  = excluded.report_json,
       model        = excluded.model
   `).run(
     FIXTURE_DATE,
+    'eod',
     Math.floor(Date.now() / 1000),
     JSON.stringify(FIXTURE_MARKET_DATA),
     JSON.stringify(FIXTURE_ANALYSIS),
@@ -71,7 +75,7 @@ async function globalSetup() {
   );
 
   db.close();
-  console.log(`✅ E2E fixture: seeded report for ${FIXTURE_DATE} into ${dbPath}`);
+  console.log(`✅ E2E fixture: seeded report for ${FIXTURE_DATE} [eod] into ${dbPath}`);
 }
 
 export default globalSetup;

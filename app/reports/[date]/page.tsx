@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'; // always render from DB, never statical
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getReportByDate } from '../../../lib/db';
+import { getReportByDate, type ReportPeriod } from '../../../lib/db';
 import PageHeader   from '../../components/PageHeader';
 import ReportHeader from '../../components/reports/ReportHeader';
 import ReportSection from '../../components/reports/ReportSection';
@@ -33,15 +33,23 @@ const SECTIONS = [
 
 export default async function ReportDatePage({
   params,
+  searchParams,
 }: {
-  params: Promise<{ date: string }>;
+  params:       Promise<{ date: string }>;
+  searchParams: Promise<{ period?: string }>;
 }) {
-  const { date } = await params;
+  const { date }    = await params;
+  const { period: periodParam } = await searchParams;
 
   // Validate format
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) notFound();
 
-  const row = getReportByDate(date);
+  const validPeriods: ReportPeriod[] = ['morning', 'midday', 'eod'];
+  const period = (periodParam && validPeriods.includes(periodParam as ReportPeriod))
+    ? periodParam as ReportPeriod
+    : undefined;
+
+  const row = getReportByDate(date, period);
   if (!row) notFound();
 
   const report: DailyReport = {
@@ -69,7 +77,7 @@ export default async function ReportDatePage({
         </Link>
       </div>
 
-      <ReportHeader report={report} />
+      <ReportHeader report={report} period={row.period} />
 
       {/* Data snapshot */}
       <DataSnapshot marketData={report.marketData} />

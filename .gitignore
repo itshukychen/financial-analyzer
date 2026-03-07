@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 data/
+
+# Agent docs — PRDs are private, designs are committed
+docs/prd-*.md

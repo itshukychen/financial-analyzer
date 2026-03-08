@@ -9,6 +9,8 @@ const DATA_BY_TICKER: Record<string, object> = {
   'DX-Y.NYB': { symbol: 'DX-Y.NYB', name: 'US Dollar Index', points: [{ time: '2026-02-25', value: 107 }], current: 107, open: 104, change: 3, changePct: 2.88 },
   '%5ETNX': { symbol: '^TNX', name: '10Y Treasury Yield', points: [{ time: '2026-02-25', value: 4.5 }], current: 4.5, open: 4.2, change: 0.3, changePct: 7.14 },
   'DGS2': { symbol: 'DGS2', name: '2Y Treasury Yield', points: [{ time: '2026-02-25', value: 4.1 }], current: 4.1, open: 3.8, change: 0.3, changePct: 7.89 },
+  'CL%3DF': { symbol: 'CL=F', name: 'WTI', points: [{ time: '2026-02-25', value: 73.0 }], current: 73.0, open: 70.0, change: 3.0, changePct: 4.29 },
+  'BZ%3DF': { symbol: 'BZ=F', name: 'Brent', points: [{ time: '2026-02-25', value: 77.0 }], current: 77.0, open: 74.0, change: 3.0, changePct: 4.05 },
 };
 
 const FEAR_GREED_MOCK = {
@@ -61,7 +63,7 @@ afterEach(() => {
 });
 
 describe('MarketChartsWidget', () => {
-  it('renders exactly 5 chart labels: S&P 500, VIX, DX-Y, 10Y Yield, 2Y Yield', async () => {
+  it('renders exactly 7 chart labels: S&P 500, VIX, DX-Y, 10Y Yield, 2Y Yield, WTI, Brent', async () => {
     render(<MarketChartsWidget />);
     // Labels are rendered synchronously (not dependent on fetch)
     expect(screen.getByText('S&P 500')).toBeInTheDocument();
@@ -69,17 +71,19 @@ describe('MarketChartsWidget', () => {
     expect(screen.getByText('DX-Y')).toBeInTheDocument();
     expect(screen.getByText('10Y Yield')).toBeInTheDocument();
     expect(screen.getByText('2Y Yield')).toBeInTheDocument();
+    expect(screen.getByText('WTI')).toBeInTheDocument();
+    expect(screen.getByText('Brent')).toBeInTheDocument();
   });
 
-  it('makes 6 fetch calls on mount (5 charts + fear-greed)', async () => {
+  it('makes 8 fetch calls on mount (7 charts + fear-greed)', async () => {
     const fetchMock = vi.mocked(global.fetch as ReturnType<typeof vi.fn>);
     render(<MarketChartsWidget />);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(6);
+      expect(fetchMock).toHaveBeenCalledTimes(8);
     });
   });
 
-  it('fetches the correct tickers: ^GSPC, ^VIX, DX-Y.NYB, ^TNX, DGS2', async () => {
+  it('fetches the correct tickers: ^GSPC, ^VIX, DX-Y.NYB, ^TNX, DGS2, CL=F, BZ=F', async () => {
     const fetchMock = vi.mocked(global.fetch as ReturnType<typeof vi.fn>);
     render(<MarketChartsWidget />);
     await waitFor(() => {
@@ -89,6 +93,8 @@ describe('MarketChartsWidget', () => {
       expect(urls.some((u) => u.includes('DX-Y.NYB'))).toBe(true);
       expect(urls.some((u) => u.includes('%5ETNX'))).toBe(true);
       expect(urls.some((u) => u.includes('DGS2'))).toBe(true);
+      expect(urls.some((u) => u.includes('CL%3DF'))).toBe(true);
+      expect(urls.some((u) => u.includes('BZ%3DF'))).toBe(true);
     });
   });
 });

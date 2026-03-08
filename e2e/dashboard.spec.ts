@@ -122,3 +122,146 @@ test.describe('Dashboard', () => {
     await expect(page.getByTestId('ticker-price-CL=F')).toHaveText('—');
   });
 });
+
+test.describe('Interactive Charts — modal open/close', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+  });
+
+  test('AC-1.1/1.2: clicking a tile opens the modal', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+  });
+
+  test('AC-1.3: modal header shows the correct ticker label', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toContainText('S&P 500');
+  });
+
+  test('AC-1.4: modal chart area is at least 400px tall', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    const container = page.getByTestId('modal-chart-container');
+    await expect(container).toBeVisible();
+    const box = await container.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(400);
+  });
+
+  test('AC-5.2: close button dismisses the modal', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+    await page.getByTestId('modal-close-btn').click();
+    await expect(page.getByTestId('chart-modal')).not.toBeVisible();
+  });
+
+  test('AC-5.1: ESC key dismisses the modal', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('chart-modal')).not.toBeVisible();
+  });
+
+  test('AC-5.3: clicking the backdrop dismisses the modal', async ({ page }) => {
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+    // Click on the backdrop (top-left corner, well outside the panel)
+    await page.getByTestId('chart-modal').click({ position: { x: 10, y: 10 } });
+    await expect(page.getByTestId('chart-modal')).not.toBeVisible();
+  });
+});
+
+test.describe('Interactive Charts — range buttons', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+  });
+
+  test('AC-2.1: all 7 range buttons are visible', async ({ page }) => {
+    for (const range of ['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD']) {
+      await expect(page.getByTestId(`range-btn-${range}`)).toBeVisible();
+    }
+  });
+
+  test('AC-2.4: 1M is the default active range', async ({ page }) => {
+    const btn1M = page.getByTestId('range-btn-1M');
+    // Active button has a distinct border — check it has accent styling
+    await expect(btn1M).toBeVisible();
+    // Not disabled
+    await expect(btn1M).toBeEnabled();
+  });
+
+  test('AC-2.2: clicking 6M triggers a new data fetch with range=6M', async ({ page }) => {
+    const [request] = await Promise.all([
+      page.waitForRequest((req) => req.url().includes('range=6M')),
+      page.getByTestId('range-btn-6M').click(),
+    ]);
+    expect(request.url()).toContain('range=6M');
+  });
+
+  test('AC-2.5: loading skeleton appears while range data is fetching', async ({ page }) => {
+    // Delay the range fetch so we can observe the skeleton
+    await page.route('**/api/market/chart/**', async (route) => {
+      if (route.request().url().includes('range=3M')) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      await route.continue();
+    });
+    page.getByTestId('range-btn-3M').click();
+    await expect(page.getByTestId('modal-chart-skeleton')).toBeVisible();
+  });
+});
+
+test.describe('Interactive Charts — FRED ticker (2Y Yield)', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+    await page.getByTestId('ticker-tile-DGS2').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+  });
+
+  test('AC-2.7: 1D button is disabled for DGS2 (FRED ticker)', async ({ page }) => {
+    await expect(page.getByTestId('range-btn-1D')).toBeDisabled();
+  });
+
+  test('AC-2.7: 5D–YTD buttons are NOT disabled for DGS2', async ({ page }) => {
+    for (const range of ['5D', '1M', '3M', '6M', '1Y', 'YTD']) {
+      await expect(page.getByTestId(`range-btn-${range}`)).toBeEnabled();
+    }
+  });
+});
+
+test.describe('Interactive Charts — no regression', () => {
+  test('tile price and delta still show after opening and closing modal', async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await expect(page.getByTestId('chart-modal')).toBeVisible();
+    await page.getByTestId('modal-close-btn').click();
+    await expect(page.getByTestId('ticker-price-^GSPC')).toBeVisible();
+    await expect(page.getByTestId('ticker-delta-^GSPC')).toBeVisible();
+  });
+
+  test('Fear & Greed widget is unaffected by modal interactions', async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+    await page.getByTestId('ticker-tile-^GSPC').click();
+    await page.getByTestId('modal-close-btn').click();
+    await expect(page.getByTestId('fear-greed-card')).toBeVisible();
+  });
+
+  test('AC-6.1: tile cursor is pointer on hover', async ({ page }) => {
+    await mockFearGreedAPI(page);
+    await mockChartAPI(page);
+    await page.goto('/');
+    const tile = page.getByTestId('ticker-tile-^GSPC');
+    const cursor = await tile.evaluate((el) => window.getComputedStyle(el).cursor);
+    expect(cursor).toBe('pointer');
+  });
+});

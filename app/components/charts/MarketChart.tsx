@@ -161,7 +161,7 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
       {loading ? (
         <div data-testid={`ticker-price-${ticker}`} style={{ height: '28px', background: 'var(--border)', borderRadius: '4px', width: '60%', animation: 'pulse 1.5s ease-in-out infinite' }} />
       ) : error ? (
-        <span data-testid={`ticker-price-${ticker}`} style={{ fontSize: '13px', color: '#f63b3b' }}>Error</span>
+        <span data-testid={`ticker-price-${ticker}`} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>—</span>
       ) : (
         <span data-testid={`ticker-price-${ticker}`} style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
           {formatValue(data!.current)}

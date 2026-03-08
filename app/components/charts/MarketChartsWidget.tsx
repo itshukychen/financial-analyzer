@@ -30,13 +30,15 @@ const CHARTS = [
     label: '2Y Yield',
     formatValue: (v: number) => v.toFixed(2) + '%',
   },
+  { ticker: 'CL=F', label: 'WTI',   formatValue: (v: number) => '$' + v.toFixed(2) },
+  { ticker: 'BZ=F', label: 'Brent', formatValue: (v: number) => '$' + v.toFixed(2) },
 ];
 
 export default function MarketChartsWidget() {
   return (
     <div
       data-testid="market-charts-grid"
-      className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3"
+      className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3"
     >
       {CHARTS.map((c) => (
         <MarketChart

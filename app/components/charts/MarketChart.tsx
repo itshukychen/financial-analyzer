@@ -127,7 +127,7 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
     : '#f63b3b';
 
   return (
-    <div style={{
+    <div data-testid={`ticker-tile-${ticker}`} style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
       borderRadius: '10px',
@@ -144,7 +144,7 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
         </span>
         {/* Delta badge */}
         {!loading && !error && data && (
-          <span style={{
+          <span data-testid={`ticker-delta-${ticker}`} style={{
             fontSize: '11px',
             fontWeight: 600,
             padding: '2px 6px',
@@ -159,11 +159,11 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
 
       {/* Value */}
       {loading ? (
-        <div style={{ height: '28px', background: 'var(--border)', borderRadius: '4px', width: '60%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div data-testid={`ticker-price-${ticker}`} style={{ height: '28px', background: 'var(--border)', borderRadius: '4px', width: '60%', animation: 'pulse 1.5s ease-in-out infinite' }} />
       ) : error ? (
-        <span style={{ fontSize: '13px', color: '#f63b3b' }}>Error</span>
+        <span data-testid={`ticker-price-${ticker}`} style={{ fontSize: '13px', color: '#f63b3b' }}>Error</span>
       ) : (
-        <span style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
+        <span data-testid={`ticker-price-${ticker}`} style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
           {formatValue(data!.current)}
         </span>
       )}

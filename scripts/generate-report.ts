@@ -26,6 +26,8 @@ interface MarketData {
   dxy:      InstrumentData;
   yield10y: InstrumentData;
   yield2y:  InstrumentData;
+  wti:      InstrumentData;  // CL=F
+  brent:    InstrumentData;  // BZ=F
 }
 
 export interface Analysis {
@@ -123,12 +125,22 @@ function toInstrument(points: DataPoint[]): InstrumentData {
 export async function fetchAllMarketData(): Promise<MarketData> {
   console.log('📡 Fetching market data...');
 
-  const [spxPts, vixPts, dxyPts, yield10yPts, yield2yPts] = await Promise.all([
+  const fallbackInstrument: InstrumentData = { current: 0, changePct: 0, points: [] };
+
+  const [spxPts, vixPts, dxyPts, yield10yPts, yield2yPts, wtiPts, brentPts] = await Promise.all([
     fetchYahoo('^GSPC').then(pts => { console.log('  ✅ ^GSPC'); return pts; }),
     fetchYahoo('^VIX').then(pts => { console.log('  ✅ ^VIX'); return pts; }),
     fetchYahoo('DX-Y.NYB').then(pts => { console.log('  ✅ DX-Y.NYB'); return pts; }),
     fetchYahoo('^TNX').then(pts => { console.log('  ✅ ^TNX'); return pts; }),
     fetchFRED('DGS2').then(pts => { console.log('  ✅ DGS2'); return pts; }),
+    fetchYahoo('CL=F').then(pts => { console.log('  ✅ CL=F'); return pts; }).catch(err => {
+      console.warn(`  ⚠️  CL=F fetch failed: ${err instanceof Error ? err.message : err} — using fallback`);
+      return [] as DataPoint[];
+    }),
+    fetchYahoo('BZ=F').then(pts => { console.log('  ✅ BZ=F'); return pts; }).catch(err => {
+      console.warn(`  ⚠️  BZ=F fetch failed: ${err instanceof Error ? err.message : err} — using fallback`);
+      return [] as DataPoint[];
+    }),
   ]);
 
   return {
@@ -137,13 +149,15 @@ export async function fetchAllMarketData(): Promise<MarketData> {
     dxy:      toInstrument(dxyPts),
     yield10y: toInstrument(yield10yPts),
     yield2y:  toInstrument(yield2yPts),
+    wti:      wtiPts.length > 0 ? toInstrument(wtiPts) : fallbackInstrument,
+    brent:    brentPts.length > 0 ? toInstrument(brentPts) : fallbackInstrument,
   };
 }
 
 // ─── Prompt Building ─────────────────────────────────────────────────────────
 
 export function buildPrompt(marketData: MarketData, today?: string): string {
-  const { spx, vix, dxy, yield10y, yield2y } = marketData;
+  const { spx, vix, dxy, yield10y, yield2y, wti, brent } = marketData;
   const reportDate = today ?? spx.points[spx.points.length - 1].time;
 
   // Helper: round to 1 decimal place
@@ -191,6 +205,20 @@ export function buildPrompt(marketData: MarketData, today?: string): string {
   const spreadDirection  = spreadBp < 0 ? 'inverted' : 'normal';
   const spreadTrend      = spread7dChangeBp >= 0 ? 'steepening' : 'flattening';
 
+  // ── WTI Crude ────────────────────────────────────────────────────────────
+  const wtiCur       = r1(wti.current);
+  const wtiPrevClose = wti.current > 0 ? wti.current / (1 + wti.changePct / 100) : 0;
+  const wti1dAbs     = r1(wti.current - wtiPrevClose);
+  const wti1dPct     = r1(wti.changePct);
+  const wtiAvail     = wti.current > 0;
+
+  // ── Brent Crude ──────────────────────────────────────────────────────────
+  const brentCur       = r1(brent.current);
+  const brentPrevClose = brent.current > 0 ? brent.current / (1 + brent.changePct / 100) : 0;
+  const brent1dAbs     = r1(brent.current - brentPrevClose);
+  const brent1dPct     = r1(brent.changePct);
+  const brentAvail     = brent.current > 0;
+
   return `You are acting as a professional global macro trading desk. Analyze the following market data (7-day history + today's opening session) using ONLY cross-asset relationships, yield curve logic, liquidity mechanics, and positioning analysis. Do NOT use any headlines or news events.
 
 MARKET DATA — ${reportDate}
@@ -223,6 +251,14 @@ DXY (US Dollar Index)
 2Y/10Y Spread
   Current:      ${spreadBp}bp  (${spreadDirection})
   7-day change: ${sign(spread7dChangeBp)}${spread7dChangeBp}bp  (${spreadTrend})
+
+WTI Crude (CL=F)
+  Current:      ${wtiAvail ? '$' + wtiCur : 'N/A'}
+  1-day:        ${wtiAvail ? sign(wti1dAbs) + wti1dAbs + ' (' + sign(wti1dPct) + wti1dPct + '%)' : 'N/A'}
+
+Brent Crude (BZ=F)
+  Current:      ${brentAvail ? '$' + brentCur : 'N/A'}
+  1-day:        ${brentAvail ? sign(brent1dAbs) + brent1dAbs + ' (' + sign(brent1dPct) + brent1dPct + '%)' : 'N/A'}
 ────────────────────────────────────────────
 
 Follow these 8 analysis steps. Respond ONLY with valid JSON matching the exact schema below.

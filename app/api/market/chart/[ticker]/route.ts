@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const revalidate = 900; // cache 15 minutes
-
 const TICKER_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
   '^VIX': 'VIX',
@@ -9,6 +7,8 @@ const TICKER_NAMES: Record<string, string> = {
   '^TNX': '10Y Treasury Yield',
   'DGS2': '2Y Treasury Yield',
   'DGS10': '10Y Treasury Yield',
+  'CL=F':  'WTI Crude Oil',
+  'BZ=F':  'Brent Crude Oil',
 };
 
 interface DataPoint {

@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 import { mockChartAPI, MOCK_CHART_RESPONSES } from './helpers/mockData';
 
 test.describe('Market Charts Widget', () => {
-  test('all 5 chart containers are rendered', async ({ page }) => {
+  test('all 7 chart containers are rendered', async ({ page }) => {
     await mockChartAPI(page);
     await page.goto('/');
     // Wait for charts to load (skeleton → real data)
     await expect(page.getByText('5,800.00')).toBeVisible({ timeout: 10_000 });
     const containers = page.locator('[data-testid="chart-container"]');
-    await expect(containers).toHaveCount(5);
+    await expect(containers).toHaveCount(7);
   });
 
   test('chart values are shown after data loads (not stuck in skeleton)', async ({ page }) => {

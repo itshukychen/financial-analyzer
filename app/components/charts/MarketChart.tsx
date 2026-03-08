@@ -19,16 +19,18 @@ interface MarketChartProps {
   ticker: string;
   label: string;
   formatValue?: (v: number) => string;
+  onClick?: () => void;
 }
 
 function defaultFormat(v: number) {
   return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function MarketChart({ ticker, label, formatValue = defaultFormat }: MarketChartProps) {
+export default function MarketChart({ ticker, label, formatValue = defaultFormat, onClick }: MarketChartProps) {
   const [data, setData] = useState<ChartData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch data
@@ -127,16 +129,27 @@ export default function MarketChart({ ticker, label, formatValue = defaultFormat
     : '#f63b3b';
 
   return (
-    <div data-testid={`ticker-tile-${ticker}`} style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: '10px',
-      padding: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '6px',
-      minWidth: 0,
-    }}>
+    <div
+      data-testid={`ticker-tile-${ticker}`}
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? 'button' : undefined}
+      aria-label={onClick ? `${label} chart, click to expand` : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: 'var(--surface)',
+        border: hovered && onClick ? '1px solid var(--accent)' : '1px solid var(--border)',
+        borderRadius: '10px',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        minWidth: 0,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'border-color 0.15s ease',
+      }}
+    >
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>

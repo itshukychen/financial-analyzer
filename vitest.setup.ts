@@ -43,6 +43,7 @@ vi.mock('lightweight-charts', () => {
     resize: vi.fn(),
     remove: vi.fn(),
     applyOptions: vi.fn(),
+    subscribeCrosshairMove: vi.fn(),
   };
   return {
     createChart: vi.fn(() => mockChart),

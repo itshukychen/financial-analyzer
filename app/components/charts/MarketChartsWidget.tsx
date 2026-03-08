@@ -50,15 +50,13 @@ export default function MarketChartsWidget() {
   }
 
   function handleModalClose() {
-    const ticker = openConfig?.ticker;
+    const ticker = openConfig!.ticker;
     setOpenConfig(null);
     // Return focus to the tile that triggered the modal (AC-5.4)
-    if (ticker) {
-      setTimeout(() => {
-        const el = document.querySelector<HTMLElement>(`[data-testid="ticker-tile-${ticker}"]`);
-        el?.focus();
-      }, 0);
-    }
+    setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-testid="ticker-tile-${ticker}"]`);
+      el?.focus();
+    }, 0);
   }
 
   return (

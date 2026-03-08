@@ -32,6 +32,8 @@ const MOCK_DATA = {
   dxy:      makeInstrument([103, 104, 105, 106, 107, 108, 109]),
   yield10y: makeInstrument([4.10, 4.15, 4.20, 4.25, 4.30, 4.35, 4.40]),
   yield2y:  makeInstrument([3.70, 3.75, 3.80, 3.85, 3.90, 3.95, 4.00]),
+  wti:      makeInstrument([70.0, 70.5, 71.0, 71.5, 72.0, 72.5, 73.0]),
+  brent:    makeInstrument([74.0, 74.5, 75.0, 75.5, 76.0, 76.5, 77.0]),
 };
 
 // ─── buildPrompt — ticker and label presence ─────────────────────────────────

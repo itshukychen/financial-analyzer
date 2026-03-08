@@ -113,4 +113,12 @@ test.describe('Dashboard', () => {
     expect(idx2Y).toBeGreaterThanOrEqual(0);
     expect(idxWTI).toBeGreaterThan(idx2Y);
   });
+
+  test('AC-8: WTI tile shows — on API error', async ({ page }) => {
+    await page.route('**/api/market/chart/CL*', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'fetch failed' }) })
+    );
+    await page.goto('/');
+    await expect(page.getByTestId('ticker-price-CL=F')).toHaveText('—');
+  });
 });

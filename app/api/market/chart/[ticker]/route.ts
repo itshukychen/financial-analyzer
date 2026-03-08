@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const revalidate = 900; // cache 15 minutes
-
 const TICKER_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
   '^VIX': 'VIX',

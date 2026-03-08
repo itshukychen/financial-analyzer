@@ -7,6 +7,8 @@ const TICKER_NAMES: Record<string, string> = {
   '^TNX': '10Y Treasury Yield',
   'DGS2': '2Y Treasury Yield',
   'DGS10': '10Y Treasury Yield',
+  'CL=F':  'WTI Crude Oil',
+  'BZ=F':  'Brent Crude Oil',
 };
 
 interface DataPoint {

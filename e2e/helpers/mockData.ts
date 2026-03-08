@@ -84,6 +84,40 @@ export const MOCK_CHART_RESPONSES: Record<string, object> = {
     change: 0.3,
     changePct: 7.89,
   },
+  'CL%3DF': {
+    symbol: 'CL=F',
+    name: 'WTI',
+    points: [
+      { time: '2026-02-17', value: 70.0 },
+      { time: '2026-02-18', value: 70.5 },
+      { time: '2026-02-19', value: 71.0 },
+      { time: '2026-02-20', value: 71.5 },
+      { time: '2026-02-21', value: 72.0 },
+      { time: '2026-02-24', value: 72.5 },
+      { time: '2026-02-25', value: 73.0 },
+    ],
+    current: 73.0,
+    open: 70.0,
+    change: 3.0,
+    changePct: 4.29,
+  },
+  'BZ%3DF': {
+    symbol: 'BZ=F',
+    name: 'Brent',
+    points: [
+      { time: '2026-02-17', value: 74.0 },
+      { time: '2026-02-18', value: 74.5 },
+      { time: '2026-02-19', value: 75.0 },
+      { time: '2026-02-20', value: 75.5 },
+      { time: '2026-02-21', value: 76.0 },
+      { time: '2026-02-24', value: 76.5 },
+      { time: '2026-02-25', value: 77.0 },
+    ],
+    current: 77.0,
+    open: 74.0,
+    change: 3.0,
+    changePct: 4.05,
+  },
 };
 
 /** Intercept the Fear & Greed API and return deterministic mock data. */

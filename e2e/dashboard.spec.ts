@@ -78,4 +78,39 @@ test.describe('Dashboard', () => {
     const grid = page.locator('[data-testid="market-charts-grid"]');
     await expect(grid).toBeVisible();
   });
+
+  test('AC-1: WTI tile is visible with price and delta', async ({ page }) => {
+    await mockChartAPI(page);
+    await page.goto('/');
+    const wtiTile  = page.locator('[data-testid="ticker-tile-CL=F"]');
+    const wtiPrice = page.locator('[data-testid="ticker-price-CL=F"]');
+    const wtiDelta = page.locator('[data-testid="ticker-delta-CL=F"]');
+    await expect(wtiTile).toBeVisible();
+    await expect(wtiPrice).not.toBeEmpty();
+    await expect(wtiDelta).not.toBeEmpty();
+  });
+
+  test('AC-2: Brent tile is visible with price and delta', async ({ page }) => {
+    await mockChartAPI(page);
+    await page.goto('/');
+    const brentTile  = page.locator('[data-testid="ticker-tile-BZ=F"]');
+    const brentPrice = page.locator('[data-testid="ticker-price-BZ=F"]');
+    const brentDelta = page.locator('[data-testid="ticker-delta-BZ=F"]');
+    await expect(brentTile).toBeVisible();
+    await expect(brentPrice).not.toBeEmpty();
+    await expect(brentDelta).not.toBeEmpty();
+  });
+
+  test('AC-1: WTI tile appears after the 2Y tile in DOM order', async ({ page }) => {
+    await mockChartAPI(page);
+    await page.goto('/');
+    // Collect all ticker-tile data-testid values in DOM order
+    const tileTestIds = await page.locator('[data-testid^="ticker-tile-"]').evaluateAll(
+      (els) => els.map((el) => el.getAttribute('data-testid') ?? ''),
+    );
+    const idx2Y  = tileTestIds.indexOf('ticker-tile-DGS2');
+    const idxWTI = tileTestIds.indexOf('ticker-tile-CL=F');
+    expect(idx2Y).toBeGreaterThanOrEqual(0);
+    expect(idxWTI).toBeGreaterThan(idx2Y);
+  });
 });

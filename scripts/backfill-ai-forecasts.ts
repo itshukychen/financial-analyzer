@@ -24,7 +24,7 @@ async function buildContext(
       regimeType: (snapshot.regime as 'elevated' | 'normal' | 'depressed') || 'normal',
     },
     projectionData: {
-      mean: ((projection.prob_distribution as any)?.[0]?.price as number) || 200,
+      mean: (Array.isArray(projection.prob_distribution) && projection.prob_distribution[0] && typeof (projection.prob_distribution[0] as Record<string, unknown>)?.price === 'number' ? ((projection.prob_distribution[0] as Record<string, unknown>).price as number) : 200),
       std: 10,
       probDistribution: {},
       keyLevels: (projection.key_levels as Array<Record<string, unknown>>).map((k: Record<string, unknown>) => ({

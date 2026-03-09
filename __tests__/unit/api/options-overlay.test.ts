@@ -4,8 +4,8 @@ import * as db from '@/lib/db';
 
 vi.mock('@/lib/db');
 
-const mockGetOptionPrices = db.getOptionPrices as any;
-const mockGetUnderlyingPrices = db.getUnderlyingPrices as any;
+const mockGetOptionPrices = vi.mocked(db.getOptionPrices);
+const mockGetUnderlyingPrices = vi.mocked(db.getUnderlyingPrices);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -15,8 +15,8 @@ function makeRequest(params: Record<string, string>) {
     url.searchParams.append(key, value);
   });
   // Create a NextRequest-like object
-  const request = new Request(url) as any;
-  request.nextUrl = { searchParams: url.searchParams };
+  const request = new Request(url) as Request & { nextUrl: { searchParams: URLSearchParams } };
+  (request as Record<string, unknown>).nextUrl = { searchParams: url.searchParams };
   return request;
 }
 

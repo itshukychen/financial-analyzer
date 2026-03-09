@@ -33,8 +33,6 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
   const [loading, setLoading]          = useState(true);
   const [error, setError]              = useState<string | null>(null);
   const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
-  const [overlayData, setOverlayData]  = useState<any>(null);
-  const [overlayLoading, setOverlayLoading] = useState(false);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef        = useRef<HTMLDivElement>(null);

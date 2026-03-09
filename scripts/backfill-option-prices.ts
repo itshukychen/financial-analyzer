@@ -171,10 +171,11 @@ async function main() {
       if (inserted % 10 === 0) {
         process.stdout.write(`\r✅ Inserted ${inserted}/${data.length}`);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Ignore duplicate key errors
-      if (!e.message.includes('UNIQUE')) {
-        console.error(`\n❌ Error inserting data point:`, e.message);
+      const err = e instanceof Error ? e : new Error(String(e));
+      if (!err.message.includes('UNIQUE')) {
+        console.error(`\n❌ Error inserting data point:`, err.message);
         errors++;
       }
     }

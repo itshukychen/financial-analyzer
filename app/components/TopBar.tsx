@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { formatDate } from '@/app/lib/utils';
 
 interface TopBarProps {
@@ -7,8 +8,16 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onMenuClick }: TopBarProps) {
+  const [healthOk, setHealthOk] = useState<boolean | null>(null);
   const now = new Date();
   const dateStr = formatDate(now);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => { if (data.ok) setHealthOk(true); })
+      .catch(() => setHealthOk(null));
+  }, []);
 
   return (
     <header
@@ -31,10 +40,22 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
       {/* Spacer on desktop (no hamburger) */}
       <div className="hidden lg:block" />
 
-      {/* Date */}
-      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-        {dateStr}
-      </span>
+      {/* Right side: badge + date */}
+      <div className="flex items-center gap-3">
+        {healthOk === true && (
+          <div
+            data-testid="health-badge"
+            title="System OK"
+            style={{ color: 'var(--accent)' }}
+            className="text-lg leading-none cursor-default"
+          >
+            ●
+          </div>
+        )}
+        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          {dateStr}
+        </span>
+      </div>
     </header>
   );
 }

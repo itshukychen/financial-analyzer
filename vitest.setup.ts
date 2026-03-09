@@ -130,5 +130,12 @@ vi.mock('@/lib/db', async (importOriginal) => {
       const key = `${ticker}-${horizonDays}`;
       return mockProjections[key as keyof typeof mockProjections] || null;
     }),
+    getOptionProjection: vi.fn((date: string, ticker: string, horizonDays: number) => {
+      // Return mock projection data for SPWX
+      if (ticker === 'SPWX' && horizonDays === 30) {
+        return mockProjections['SPWX-30'] || null;
+      }
+      return null;
+    }),
   };
 });

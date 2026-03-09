@@ -114,12 +114,6 @@ export default function DashboardPage() {
         {reportWidget}
       </div>
 
-      {/* Full-width widget */}
-      <PlaceholderWidget
-        label="Market Heatmap"
-        description="S&P 500 sector performance visualized by weight and returns"
-        minHeight="300px"
-      />
     </>
   );
 }

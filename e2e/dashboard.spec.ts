@@ -55,10 +55,9 @@ test.describe('Dashboard', () => {
   test('placeholder widgets are present', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('Daily Market Report')).toBeVisible();
-    await expect(page.getByText('Market Heatmap')).toBeVisible();
     const comingSoon = page.getByText('Coming soon');
     await expect(comingSoon.first()).toBeVisible();
-    expect(await comingSoon.count()).toBeGreaterThanOrEqual(2);
+    expect(await comingSoon.count()).toBeGreaterThanOrEqual(1);
   });
 
   test('FinAnalyzer brand is visible in sidebar', async ({ page }) => {

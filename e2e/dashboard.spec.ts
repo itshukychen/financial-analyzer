@@ -234,6 +234,89 @@ test.describe('Interactive Charts — FRED ticker (2Y Yield)', () => {
   });
 });
 
+/**
+ * AC Coverage — Market Heatmap Removal (prd-remove-market-heatmap.md):
+ * AC-1.1 → 'Market Heatmap widget is absent from the dashboard DOM'
+ * AC-1.3 → 'Remaining widgets (charts grid + report area) render without layout gaps'
+ * AC-E.1 → 'No console errors after heatmap removal'
+ * AC-E.2 → 'Remaining widgets maintain layout on mobile viewport'
+ */
+test.describe('Market Heatmap Removal', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockFearGreedAPI(page);
+  });
+
+  test('AC-1.1: Market Heatmap widget is absent from the dashboard DOM', async ({ page }) => {
+    await page.goto('/');
+    // The heatmap PlaceholderWidget must not appear anywhere on the dashboard
+    await expect(page.getByText('Market Heatmap')).not.toBeVisible();
+  });
+
+  test('AC-1.1: no element with "Market Heatmap" text exists at all', async ({ page }) => {
+    await page.goto('/');
+    const count = await page.getByText('Market Heatmap').count();
+    expect(count).toBe(0);
+  });
+
+  test('AC-1.3: market charts grid is visible after heatmap removal', async ({ page }) => {
+    await mockChartAPI(page);
+    await page.goto('/');
+    await expect(page.getByTestId('market-charts-grid')).toBeVisible();
+  });
+
+  test('AC-1.3: report area is visible after heatmap removal', async ({ page }) => {
+    await page.goto('/');
+    // With fixture data seeded, the full report widget renders; without it the placeholder shows.
+    // Either way "Daily Market Report" label must be present.
+    await expect(page.getByText('Daily Market Report').first()).toBeVisible();
+  });
+
+  test('AC-1.3: no Coming-soon badge for Market Heatmap — count is exactly one (Daily Market Report fallback only when no live report) or zero (live report present)', async ({ page }) => {
+    await page.goto('/');
+    // The fixture seeds a real report, so the Daily Market Report renders as a real widget (no placeholder).
+    // Market Heatmap is gone. So "Coming soon" count must be 0 (no placeholders visible).
+    // If for any reason the real report is absent, count may be 1 — never >= 2.
+    const count = await page.getByText('Coming soon').count();
+    expect(count).toBeLessThanOrEqual(1);
+  });
+
+  test('AC-E.1: no console errors on page load after heatmap removal', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    expect(errors).toHaveLength(0);
+  });
+
+  test('AC-E.2: remaining widgets visible on mobile viewport (375px)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await mockChartAPI(page);
+    await page.goto('/');
+
+    // Charts grid is visible
+    await expect(page.getByTestId('market-charts-grid')).toBeVisible();
+
+    // Report area is visible
+    await expect(page.getByText('Daily Market Report').first()).toBeVisible();
+
+    // Market Heatmap is still absent on mobile
+    expect(await page.getByText('Market Heatmap').count()).toBe(0);
+  });
+
+  test('AC-E.2: no horizontal overflow on mobile after heatmap removal', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/');
+
+    const grid = page.getByTestId('market-charts-grid');
+    await expect(grid).toBeVisible();
+
+    const box = await grid.boundingBox();
+    expect(box?.width).toBeLessThanOrEqual(375);
+  });
+});
+
 test.describe('Interactive Charts — no regression', () => {
   test('tile price and delta still show after opening and closing modal', async ({ page }) => {
     await mockFearGreedAPI(page);

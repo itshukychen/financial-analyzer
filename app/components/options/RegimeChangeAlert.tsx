@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import styles from './RegimeChangeAlert.module.css';
 
 interface Props {
@@ -14,15 +14,13 @@ interface Props {
 }
 
 export default function RegimeChangeAlert({ regimeChange, onDismiss }: Props) {
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    // Check if already dismissed (localStorage)
+  const [dismissed, setDismissed] = useState(() => {
     const key = `regime-alert-${regimeChange.timestamp}`;
     if (typeof window !== 'undefined' && localStorage.getItem(key) === 'dismissed') {
-      setDismissed(true);
+      return true;
     }
-  }, [regimeChange.timestamp]);
+    return false;
+  });
 
   const handleDismiss = () => {
     const key = `regime-alert-${regimeChange.timestamp}`;

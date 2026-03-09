@@ -210,10 +210,7 @@ function migrate(db: Database.Database): void {
   ).get();
   
   // Migrate v1 → v2
-  if (cols.includes('period')) {
-    // v2 already or later
-    if (hasOptionSnapshots) return; // Already at v3
-  } else {
+  if (!cols.includes('period')) {
     // v1 table exists but lacks period — rebuild
     db.exec(`
       ALTER TABLE reports RENAME TO reports_v1;

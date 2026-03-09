@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAIAnalysis } from '@/lib/aiOptionsForecast';
-import { getOptionSnapshot, getOptionProjection, getAIForecast } from '@/lib/db';
+import { getOptionSnapshot, getOptionProjection, getAIForecast, type KeyLevel } from '@/lib/db';
 import type { OptionAnalysisContext } from '@/lib/types/aiOptionsForecast';
 
 export async function POST(request: NextRequest) {
@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
         mean: projection.prob_distribution[0]?.price || 200,
         std: 10,
         probDistribution: {},
-        keyLevels: projection.key_levels.map((k: any) => ({
-          price: k.level || k.price || 200,
+        keyLevels: projection.key_levels.map((k: KeyLevel) => ({
+          price: k.level,
           probability: k.probability || 0.5,
         })),
       },

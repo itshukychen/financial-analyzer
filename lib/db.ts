@@ -2,6 +2,93 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
+// ─── Schema (v4 — adds option prices for chart overlay) ──────────────────────
+
+const SCHEMA_V4 = `
+  CREATE TABLE IF NOT EXISTS reports (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT    NOT NULL,
+    period       TEXT    NOT NULL DEFAULT 'eod',
+    generated_at INTEGER NOT NULL,
+    ticker_data  TEXT    NOT NULL,
+    report_json  TEXT    NOT NULL,
+    model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5',
+    UNIQUE(date, period)
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC, period ASC);
+
+  CREATE TABLE IF NOT EXISTS option_snapshots (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    date              TEXT    NOT NULL,
+    ticker            TEXT    NOT NULL,
+    expiry            TEXT    NOT NULL,
+    
+    iv_30d            REAL,
+    iv_60d            REAL,
+    hv_20d            REAL,
+    hv_60d            REAL,
+    iv_rank           INTEGER,
+    
+    net_delta         REAL,
+    atm_gamma         REAL,
+    vega_per_1pct     REAL,
+    theta_daily       REAL,
+    
+    call_otm_iv       REAL,
+    put_otm_iv        REAL,
+    skew_ratio        REAL,
+    
+    implied_move_pct  REAL,
+    
+    regime            TEXT,
+    raw_json          TEXT,
+    
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(date, ticker, expiry)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_snapshots_date 
+    ON option_snapshots(date DESC, ticker, expiry);
+
+  CREATE TABLE IF NOT EXISTS option_projections (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    date                    TEXT    NOT NULL,
+    ticker                  TEXT    NOT NULL,
+    horizon_days            INTEGER NOT NULL,
+    
+    prob_distribution       TEXT    NOT NULL,
+    key_levels              TEXT    NOT NULL,
+    
+    regime_classification   TEXT,
+    
+    created_at              INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(date, ticker, horizon_days)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_projections_date 
+    ON option_projections(date DESC, ticker);
+
+  CREATE TABLE IF NOT EXISTS option_prices (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker            TEXT    NOT NULL,
+    strike            REAL    NOT NULL,
+    expiry_date       TEXT    NOT NULL,
+    option_type       TEXT    NOT NULL DEFAULT 'call',
+    timestamp         INTEGER NOT NULL,
+    price             REAL    NOT NULL,
+    bid               REAL,
+    ask               REAL,
+    volume            INTEGER,
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(ticker, strike, expiry_date, option_type, timestamp)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
+    ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
+  CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+    ON option_prices(expiry_date);
+`;
+
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
 
 const SCHEMA_V3 = `
@@ -69,6 +156,20 @@ const SCHEMA_V3 = `
     ON option_projections(date DESC, ticker);
 `;
 
+const SCHEMA_V2 = `
+  CREATE TABLE IF NOT EXISTS reports (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT    NOT NULL,
+    period       TEXT    NOT NULL DEFAULT 'eod',
+    generated_at INTEGER NOT NULL,
+    ticker_data  TEXT    NOT NULL,
+    report_json  TEXT    NOT NULL,
+    model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5',
+    UNIQUE(date, period)
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC, period ASC);
+`;
+
 export type ReportPeriod = 'morning' | 'midday' | 'eod';
 
 export const PERIOD_LABELS: Record<ReportPeriod, string> = {
@@ -80,23 +181,6 @@ export const PERIOD_LABELS: Record<ReportPeriod, string> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type VolatilityRegime = 'low' | 'normal' | 'high';
-
-// Raw database row types (before JSON parsing)
-export interface OptionSnapshotRow extends Omit<OptionSnapshot, 'raw_json' | 'prob_distribution'> {
-  raw_json: string;
-  prob_distribution: string; // JSON string from database
-}
-
-export interface OptionProjectionRow {
-  id: number;
-  date: string;
-  ticker: string;
-  horizon_days: number;
-  prob_distribution: string; // JSON string
-  key_levels: string; // JSON string
-  regime_classification: VolatilityRegime | null;
-  created_at: number;
-}
 
 export interface ReportRow {
   id:           number;
@@ -127,7 +211,6 @@ export interface OptionSnapshot {
   skew_ratio:        number | null;
   implied_move_pct:  number | null;
   regime:            VolatilityRegime | null;
-  prob_distribution: Array<ProbabilityPoint> | null;
   raw_json:          string;
   created_at:        number;
 }
@@ -154,33 +237,21 @@ export interface OptionProjection {
   created_at:            number;
 }
 
-// ─── Factory (used by tests with ':memory:') ──────────────────────────────────
-
-// ─── AI Forecasts Types ───────────────────────────────────────────────────────
-
-export interface AIForecastRow {
-  id: number;
-  ticker: string;
-  date: string;
-  snapshot_date: string;
-  summary: string | null;
-  outlook: string | null;
-  pt_conservative: number | null;
-  pt_base: number | null;
-  pt_aggressive: number | null;
-  pt_confidence: number | null;
-  regime_classification: string | null;
-  regime_justification: string | null;
-  regime_recommendation: string | null;
-  key_support: number | null;
-  key_resistance: number | null;
-  profit_targets: string | null;
-  stop_loss: number | null;
-  overall_confidence: number | null;
-  confidence_reasoning: string | null;
-  created_at: string;
-  ai_model: string;
+export interface OptionPrice {
+  id:         number;
+  ticker:     string;
+  strike:     number;
+  expiry_date: string;
+  option_type: 'call' | 'put';
+  timestamp:  number;
+  price:      number;
+  bid:        number | null;
+  ask:        number | null;
+  volume:     number | null;
+  created_at: number;
 }
+
+// ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
   db: Database.Database;
@@ -196,21 +267,29 @@ export interface DbInstance {
   insertOptionProjection(projection: Omit<OptionProjection, 'id' | 'created_at'>): OptionProjection;
   getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null;
   
-  insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow;
-  getAIForecast(ticker: string, date: string): AIForecastRow | null;
-  getPreviousAIForecast(ticker: string, date: string): AIForecastRow | null;
+  insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
+  getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
+  getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
 }
 
-// ─── Migration: v1 → v2 → v3 ────────────────────────────────────────────────
+// ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
 
 function migrate(db: Database.Database): void {
   const cols = (db.pragma('table_info(reports)') as { name: string }[]).map(c => c.name);
   const hasOptionSnapshots = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='option_snapshots'"
   ).get();
+  const hasOptionPrices = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='option_prices'"
+  ).get();
   
   // Migrate v1 → v2
-  if (!cols.includes('period')) {
+  if (cols.includes('period')) {
+    // v2 already or later
+    if (hasOptionSnapshots) {
+      if (hasOptionPrices) return; // Already at v4
+    }
+  } else {
     // v1 table exists but lacks period — rebuild
     db.exec(`
       ALTER TABLE reports RENAME TO reports_v1;
@@ -291,48 +370,29 @@ function migrate(db: Database.Database): void {
         ON option_projections(date DESC, ticker);
     `);
   }
-
-  // Create AI forecasts table if it doesn't exist
-  const hasAIForecasts = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts'"
-  ).get();
-
-  if (!hasAIForecasts) {
+  
+  // Create v4 option_prices table if it doesn't exist
+  if (!hasOptionPrices) {
     db.exec(`
-      CREATE TABLE IF NOT EXISTS ai_forecasts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ticker TEXT NOT NULL,
-        date TEXT NOT NULL,
-        snapshot_date TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS option_prices (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker            TEXT    NOT NULL,
+        strike            REAL    NOT NULL,
+        expiry_date       TEXT    NOT NULL,
+        option_type       TEXT    NOT NULL DEFAULT 'call',
+        timestamp         INTEGER NOT NULL,
+        price             REAL    NOT NULL,
+        bid               REAL,
+        ask               REAL,
+        volume            INTEGER,
+        created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
         
-        summary TEXT,
-        outlook TEXT CHECK(outlook IN ('bullish','neutral','bearish')),
-        
-        pt_conservative REAL,
-        pt_base REAL,
-        pt_aggressive REAL,
-        pt_confidence REAL CHECK(pt_confidence >= 0 AND pt_confidence <= 1),
-        
-        regime_classification TEXT CHECK(regime_classification IN ('elevated','normal','depressed')),
-        regime_justification TEXT,
-        regime_recommendation TEXT,
-        
-        key_support REAL,
-        key_resistance REAL,
-        profit_targets TEXT,
-        stop_loss REAL,
-        
-        overall_confidence REAL CHECK(overall_confidence >= 0 AND overall_confidence <= 1),
-        confidence_reasoning TEXT,
-        
-        created_at TEXT DEFAULT (datetime('now')),
-        ai_model TEXT DEFAULT 'claude-sonnet-4-5',
-        
-        UNIQUE(ticker, date, snapshot_date)
+        UNIQUE(ticker, strike, expiry_date, option_type, timestamp)
       );
-      
-      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_ticker_date ON ai_forecasts(ticker, date);
-      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_created_at ON ai_forecasts(created_at);
+      CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
+        ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
+      CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+        ON option_prices(expiry_date);
     `);
   }
 }
@@ -342,9 +402,9 @@ export function createDb(dbPath: string): DbInstance {
 
   // Create table if brand new, then migrate if upgrading
   try {
-    db.exec(SCHEMA_V3);
+    db.exec(SCHEMA_V4);
   } catch {
-    // Table may already exist with v1 or v2 schema — migrate below
+    // Table may already exist with v1, v2, or v3 schema — migrate below
   }
   migrate(db);
 
@@ -451,7 +511,7 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionSnapshot(date: string, ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE date = ? AND ticker = ? AND expiry = ?'
-    ).get(date, ticker, expiry) as OptionSnapshotRow | undefined;
+    ).get(date, ticker, expiry) as any;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -459,7 +519,7 @@ export function createDb(dbPath: string): DbInstance {
   function getLatestOptionSnapshot(ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE ticker = ? AND expiry = ? ORDER BY date DESC LIMIT 1'
-    ).get(ticker, expiry) as OptionSnapshotRow | undefined;
+    ).get(ticker, expiry) as any;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -487,7 +547,7 @@ export function createDb(dbPath: string): DbInstance {
 
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(projection.date, projection.ticker, projection.horizon_days) as OptionProjectionRow;
+    ).get(projection.date, projection.ticker, projection.horizon_days) as any;
     
     return parseOptionProjection(raw);
   }
@@ -495,93 +555,81 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null {
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(date, ticker, horizonDays) as OptionProjectionRow | undefined;
+    ).get(date, ticker, horizonDays) as any;
     
     return raw ? parseOptionProjection(raw) : null;
   }
 
-  // ─── AI Forecast CRUD ───────────────────────────────────────────────────────
+  // ─── Option Price CRUD ───────────────────────────────────────────────────────
 
-  function insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow {
-    const snapshotDate = analysis.snapshotDate || date;
-    
+  function insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice {
     db.prepare(`
-      INSERT INTO ai_forecasts (
-        ticker, date, snapshot_date,
-        summary, outlook,
-        pt_conservative, pt_base, pt_aggressive, pt_confidence,
-        regime_classification, regime_justification, regime_recommendation,
-        key_support, key_resistance, profit_targets, stop_loss,
-        overall_confidence, confidence_reasoning
+      INSERT INTO option_prices (
+        ticker, strike, expiry_date, option_type, timestamp, price, bid, ask, volume
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(ticker, date, snapshot_date) DO UPDATE SET
-        summary = excluded.summary,
-        outlook = excluded.outlook,
-        pt_conservative = excluded.pt_conservative,
-        pt_base = excluded.pt_base,
-        pt_aggressive = excluded.pt_aggressive,
-        pt_confidence = excluded.pt_confidence,
-        regime_classification = excluded.regime_classification,
-        regime_justification = excluded.regime_justification,
-        regime_recommendation = excluded.regime_recommendation,
-        key_support = excluded.key_support,
-        key_resistance = excluded.key_resistance,
-        profit_targets = excluded.profit_targets,
-        stop_loss = excluded.stop_loss,
-        overall_confidence = excluded.overall_confidence,
-        confidence_reasoning = excluded.confidence_reasoning
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ticker, strike, expiry_date, option_type, timestamp) DO UPDATE SET
+        price = excluded.price,
+        bid = excluded.bid,
+        ask = excluded.ask,
+        volume = excluded.volume
     `).run(
-      ticker,
-      date,
-      snapshotDate,
-      analysis.summary,
-      analysis.outlook,
-      analysis.priceTargets?.conservative ?? null,
-      analysis.priceTargets?.base ?? null,
-      analysis.priceTargets?.aggressive ?? null,
-      analysis.priceTargets?.confidence ?? null,
-      analysis.regimeAnalysis?.classification ?? null,
-      analysis.regimeAnalysis?.justification ?? null,
-      analysis.regimeAnalysis?.recommendation ?? null,
-      analysis.tradingLevels?.keySupport ?? null,
-      analysis.tradingLevels?.keyResistance ?? null,
-      analysis.tradingLevels?.profitTargets ? JSON.stringify(analysis.tradingLevels.profitTargets) : null,
-      analysis.tradingLevels?.stopLoss ?? null,
-      analysis.confidence?.overall ?? null,
-      analysis.confidence?.reasoning ?? null,
+      price.ticker,
+      price.strike,
+      price.expiry_date,
+      price.option_type,
+      price.timestamp,
+      price.price,
+      price.bid ?? null,
+      price.ask ?? null,
+      price.volume ?? null,
     );
 
-    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, date) as AIForecastRow;
+    return db.prepare(
+      'SELECT * FROM option_prices WHERE ticker = ? AND strike = ? AND expiry_date = ? AND option_type = ? AND timestamp = ?'
+    ).get(price.ticker, price.strike, price.expiry_date, price.option_type, price.timestamp) as OptionPrice;
   }
 
-  function getAIForecast(ticker: string, date: string): AIForecastRow | null {
-    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, date) as AIForecastRow | null;
+  function getOptionPrices(
+    ticker: string,
+    strike: number,
+    expiryDate: string,
+    optionType: 'call' | 'put',
+    startTimestamp: number,
+    endTimestamp: number,
+  ): OptionPrice[] {
+    return db.prepare(`
+      SELECT * FROM option_prices
+      WHERE ticker = ? AND strike = ? AND expiry_date = ? AND option_type = ?
+        AND timestamp BETWEEN ? AND ?
+      ORDER BY timestamp ASC
+    `).all(ticker, strike, expiryDate, optionType, startTimestamp, endTimestamp) as OptionPrice[];
   }
 
-  function getPreviousAIForecast(ticker: string, date: string): AIForecastRow | null {
-    // Get the forecast from the previous business day
-    const previousDate = new Date(date);
-    previousDate.setDate(previousDate.getDate() - 1);
-    const previousDateStr = previousDate.toISOString().split('T')[0];
-    
-    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, previousDateStr) as AIForecastRow | null;
+  function getUnderlyingPrices(
+    ticker: string,
+    startTimestamp: number,
+    endTimestamp: number,
+  ): Array<{ timestamp: number; price: number }> {
+    // For now, return empty array as we don't have market_data table in schema
+    // This would be populated from market_data if available
+    return [];
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  function parseOptionSnapshot(raw: OptionSnapshotRow): OptionSnapshot {
+  function parseOptionSnapshot(raw: any): OptionSnapshot {
     return {
       ...raw,
       prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution) : [],
     };
   }
 
-  function parseOptionProjection(raw: OptionProjectionRow): OptionProjection {
+  function parseOptionProjection(raw: any): OptionProjection {
     return {
       ...raw,
-      prob_distribution: JSON.parse(raw.prob_distribution as string),
-      key_levels: JSON.parse(raw.key_levels as string),
+      prob_distribution: JSON.parse(raw.prob_distribution),
+      key_levels: JSON.parse(raw.key_levels),
     };
   }
 
@@ -596,9 +644,9 @@ export function createDb(dbPath: string): DbInstance {
     getLatestOptionSnapshot,
     insertOptionProjection,
     getOptionProjection,
-    insertOrReplaceAIForecast,
-    getAIForecast,
-    getPreviousAIForecast,
+    insertOptionPrice,
+    getOptionPrices,
+    getUnderlyingPrices,
   };
 }
 
@@ -624,9 +672,9 @@ export const getLatestOptionSnapshot  = _instance.getLatestOptionSnapshot.bind(_
 export const insertOptionProjection   = _instance.insertOptionProjection.bind(_instance);
 export const getOptionProjection      = _instance.getOptionProjection.bind(_instance);
 
-// AI Forecasts
-export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
-export const getAIForecast             = _instance.getAIForecast.bind(_instance);
-export const getPreviousAIForecast     = _instance.getPreviousAIForecast.bind(_instance);
+// Option Prices (for chart overlay)
+export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
+export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
+export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
 
 export default _instance.db;

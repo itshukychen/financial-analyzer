@@ -34,34 +34,6 @@ export interface Greeks {
 }
 
 /**
- * Validate input parameters for option calculations
- * @throws Error if inputs are invalid
- */
-function validateInputs(
-  spotPrice: number,
-  strike: number,
-  timeToExpiry: number,
-  volatility: number,
-  riskFreeRate: number
-): void {
-  if (!Number.isFinite(spotPrice) || spotPrice <= 0) {
-    throw new Error(`Invalid spotPrice: ${spotPrice}`);
-  }
-  if (!Number.isFinite(strike) || strike <= 0) {
-    throw new Error(`Invalid strike: ${strike}`);
-  }
-  if (!Number.isFinite(timeToExpiry) || timeToExpiry < 0) {
-    throw new Error(`Invalid timeToExpiry: ${timeToExpiry}`);
-  }
-  if (!Number.isFinite(volatility) || volatility < 0) {
-    throw new Error(`Invalid volatility: ${volatility}`);
-  }
-  if (!Number.isFinite(riskFreeRate)) {
-    throw new Error(`Invalid riskFreeRate: ${riskFreeRate}`);
-  }
-}
-
-/**
  * Calculate d1 and d2 from Black-Scholes model
  * These are intermediate values used in multiple Greeks calculations
  */
@@ -75,8 +47,6 @@ function calculateD1D2(
   if (timeToExpiry <= 0 || volatility <= 0) {
     return { d1: 0, d2: 0 };
   }
-
-  validateInputs(spotPrice, strike, timeToExpiry, volatility, riskFreeRate);
 
   const d1 =
     (Math.log(spotPrice / strike) + (riskFreeRate + 0.5 * volatility ** 2) * timeToExpiry) /
@@ -239,13 +209,6 @@ export function calculateGreeks(
 export function calculateHistoricalVolatility(prices: number[], window: number = 20): number {
   if (prices.length < window || prices.length < 2) {
     throw new Error('Insufficient data for HV calculation');
-  }
-
-  // Validate all prices
-  for (let i = 0; i < prices.length; i++) {
-    if (!Number.isFinite(prices[i]) || prices[i] <= 0) {
-      throw new Error(`Invalid price at index ${i}: ${prices[i]}`);
-    }
   }
 
   const recentPrices = prices.slice(-window);
@@ -436,29 +399,8 @@ export function calculateProbabilityDistribution(
   }>,
   timeToExpiry: number
 ): { price: number; probability: number }[] {
-  if (!Number.isFinite(spotPrice) || spotPrice <= 0) {
-    throw new Error(`Invalid spotPrice: ${spotPrice}`);
-  }
-  if (!Number.isFinite(timeToExpiry) || timeToExpiry <= 0) {
-    throw new Error(`Invalid timeToExpiry: ${timeToExpiry}`);
-  }
-
   if (optionChain.length === 0) {
     return [];
-  }
-
-  // Validate option chain data
-  for (let i = 0; i < optionChain.length; i++) {
-    const oc = optionChain[i];
-    if (!Number.isFinite(oc.strike) || oc.strike <= 0) {
-      throw new Error(`Invalid strike at index ${i}: ${oc.strike}`);
-    }
-    if (!Number.isFinite(oc.callPrice) || oc.callPrice < 0) {
-      throw new Error(`Invalid callPrice at index ${i}: ${oc.callPrice}`);
-    }
-    if (!Number.isFinite(oc.putPrice) || oc.putPrice < 0) {
-      throw new Error(`Invalid putPrice at index ${i}: ${oc.putPrice}`);
-    }
   }
 
   // Calculate straddle prices (call + put value at each strike)
@@ -497,16 +439,6 @@ export function calculateImpliedMove(
   atmStraddlePrice: number,
   timeToExpiry: number
 ): number {
-  if (!Number.isFinite(spotPrice) || spotPrice <= 0) {
-    throw new Error(`Invalid spotPrice: ${spotPrice}`);
-  }
-  if (!Number.isFinite(atmStraddlePrice) || atmStraddlePrice < 0) {
-    throw new Error(`Invalid atmStraddlePrice: ${atmStraddlePrice}`);
-  }
-  if (!Number.isFinite(timeToExpiry) || timeToExpiry <= 0) {
-    throw new Error(`Invalid timeToExpiry: ${timeToExpiry}`);
-  }
-
   // Rough approximation
   return (atmStraddlePrice / spotPrice) * Math.sqrt(365 / (timeToExpiry * 252));
 }
@@ -520,16 +452,6 @@ export function calculateConfidenceBands(
   impliedMove: number,
   confidence: number = 0.68 // 1 standard deviation
 ): { low: number; high: number } {
-  if (!Number.isFinite(spotPrice) || spotPrice <= 0) {
-    throw new Error(`Invalid spotPrice: ${spotPrice}`);
-  }
-  if (!Number.isFinite(impliedMove) || impliedMove < 0) {
-    throw new Error(`Invalid impliedMove: ${impliedMove}`);
-  }
-  if (!Number.isFinite(confidence) || confidence <= 0 || confidence > 1) {
-    throw new Error(`Invalid confidence: ${confidence}`);
-  }
-
   const movePercent = impliedMove / spotPrice;
   return {
     low: spotPrice * (1 - movePercent),

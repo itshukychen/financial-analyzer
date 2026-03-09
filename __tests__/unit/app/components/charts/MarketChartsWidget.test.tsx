@@ -7,7 +7,7 @@
  * - {openConfig && <ChartModal>}: conditional render branch (true + false)
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import MarketChartsWidget from '@/app/components/charts/MarketChartsWidget';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────

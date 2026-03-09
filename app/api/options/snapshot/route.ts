@@ -18,6 +18,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Extract spot price from raw_json if available
+    let spotPrice: number | null = null;
+    try {
+      const rawData = JSON.parse(snapshot.raw_json);
+      spotPrice = rawData.spotPrice || null;
+    } catch {
+      // raw_json parse error - spotPrice will remain null
+    }
+
     // Format response
     const response = {
       ticker: snapshot.ticker,
@@ -53,11 +62,19 @@ export async function GET(req: NextRequest) {
           ? snapshot.implied_move_pct / 2
           : null,
         '30d_move_pct': snapshot.implied_move_pct,
-        // Confidence bands (mock for now, using simplified calculation)
-        '1w_conf_low': 475 * (1 - (snapshot.implied_move_pct || 2) / 200),
-        '1w_conf_high': 475 * (1 + (snapshot.implied_move_pct || 2) / 200),
-        '2sd_low': 475 * (1 - (snapshot.implied_move_pct || 2) / 100),
-        '2sd_high': 475 * (1 + (snapshot.implied_move_pct || 2) / 100),
+        // Confidence bands calculated from spot price (extracted from raw_json)
+        '1w_conf_low': spotPrice && snapshot.implied_move_pct 
+          ? spotPrice * (1 - (snapshot.implied_move_pct / 2) / 100)
+          : null,
+        '1w_conf_high': spotPrice && snapshot.implied_move_pct 
+          ? spotPrice * (1 + (snapshot.implied_move_pct / 2) / 100)
+          : null,
+        '2sd_low': spotPrice && snapshot.implied_move_pct 
+          ? spotPrice * (1 - snapshot.implied_move_pct / 100)
+          : null,
+        '2sd_high': spotPrice && snapshot.implied_move_pct 
+          ? spotPrice * (1 + snapshot.implied_move_pct / 100)
+          : null,
       },
       regime: snapshot.regime,
     };

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import OptionsOverlaySelector, { OverlayConfig } from './OptionsOverlaySelector';
 
 const VALID_RANGES = ['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD'] as const;
 type Range = typeof VALID_RANGES[number];
@@ -32,7 +31,6 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
   const [data, setData]                = useState<RangeData | null>(null);
   const [loading, setLoading]          = useState(true);
   const [error, setError]              = useState<string | null>(null);
-  const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef        = useRef<HTMLDivElement>(null);
@@ -317,16 +315,7 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
             ))}
           </div>
           
-          {/* Options Overlay Selector */}
-          <OptionsOverlaySelector
-            ticker={ticker}
-            onOverlayChange={setOverlayConfig}
-            defaultConfig={{
-              strike: 3000,
-              expiry: '2026-06-17',
-              optionType: 'call',
-            }}
-          />
+
         </div>
 
         {/* Chart area — takes remaining height */}

@@ -82,8 +82,9 @@ export const PERIOD_LABELS: Record<ReportPeriod, string> = {
 export type VolatilityRegime = 'low' | 'normal' | 'high';
 
 // Raw database row types (before JSON parsing)
-export interface OptionSnapshotRow extends Omit<OptionSnapshot, 'raw_json'> {
+export interface OptionSnapshotRow extends Omit<OptionSnapshot, 'raw_json' | 'prob_distribution'> {
   raw_json: string;
+  prob_distribution: string; // JSON string from database
 }
 
 export interface OptionProjectionRow {
@@ -126,6 +127,7 @@ export interface OptionSnapshot {
   skew_ratio:        number | null;
   implied_move_pct:  number | null;
   regime:            VolatilityRegime | null;
+  prob_distribution: Array<ProbabilityPoint> | null;
   raw_json:          string;
   created_at:        number;
 }

@@ -35,6 +35,7 @@ export function generateMockOptionSnapshot(
     skew_ratio: skewRatio,
     implied_move_pct: 2 + Math.random() * 3,
     regime,
+    prob_distribution: generateMockProbabilityDistribution(spotPrice, baseIV, 30),
     raw_json: JSON.stringify({ 
       spotPrice,
       mockData: true, 

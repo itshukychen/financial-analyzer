@@ -1,1 +1,0 @@
-/home/claw/.clawdbot/scripts/log-feature.sh

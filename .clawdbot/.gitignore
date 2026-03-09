@@ -1,8 +1,0 @@
-# Don't commit agent logs or prompts with sensitive data
-logs/
-# Don't commit active tasks (runtime state)
-active-tasks.json
-# Don't commit worktree metadata (local to main checkout only)
-worktrees.json
-# Keep scripts and prompts templates tracked
-!prompts/TEMPLATE.md

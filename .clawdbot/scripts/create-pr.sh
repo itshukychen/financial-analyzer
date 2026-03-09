@@ -1,1 +1,0 @@
-/home/claw/.clawdbot/scripts/create-pr.sh

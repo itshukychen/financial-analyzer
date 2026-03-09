@@ -1,0 +1,243 @@
+/* app/components/options/AIOptionsForecastSection.module.css */
+
+.container {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+}
+
+.title {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.summary {
+  background: var(--background);
+  padding: 16px;
+  border-radius: 4px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.summary p {
+  margin: 0;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.outlookBadge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.outlookBadge[data-outlook='bullish'] {
+  background: var(--gain);
+  color: white;
+}
+
+.outlookBadge[data-outlook='neutral'] {
+  background: var(--text-muted);
+  color: white;
+}
+
+.outlookBadge[data-outlook='bearish'] {
+  background: var(--loss);
+  color: white;
+}
+
+.priceTargets,
+.regime,
+.tradingLevels {
+  margin-bottom: 24px;
+}
+
+.priceTargets h3,
+.regime h3,
+.tradingLevels h3 {
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.targetGrid,
+.levelGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.target,
+.level {
+  text-align: center;
+  padding: 12px;
+  background: var(--background);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.value {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.confidenceBar {
+  margin-top: 12px;
+  height: 24px;
+  background: var(--background);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.confidenceFill {
+  height: 100%;
+  background: linear-gradient(to right, var(--gain), var(--accent));
+  transition: width 0.3s ease;
+}
+
+.confidenceLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.regimeBadge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.regimeBadge[data-regime='elevated'] {
+  background: var(--loss);
+  color: white;
+}
+
+.regimeBadge[data-regime='normal'] {
+  background: var(--text-muted);
+  color: white;
+}
+
+.regimeBadge[data-regime='depressed'] {
+  background: var(--gain);
+  color: white;
+}
+
+.justification {
+  margin: 8px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.recommendation {
+  margin: 12px 0 0 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.recommendation strong {
+  color: var(--text-primary);
+}
+
+.profitTargets {
+  margin-top: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.profitTarget {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 4px 8px;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.confidence {
+  background: var(--background);
+  padding: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.confidence strong {
+  color: var(--text-primary);
+}
+
+.confidenceScore {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--gain);
+  margin-left: 8px;
+}
+
+.reasoning {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 48px;
+  font-size: 16px;
+}
+
+.loading {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--loss);
+  background: var(--loss);
+  background: rgba(var(--loss-rgb), 0.1);
+  border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .targetGrid,
+  .levelGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .container {
+    padding: 16px;
+  }
+}

@@ -211,8 +211,25 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
         justifyContent: 'center',
       }}
     >
+      <style>{`
+  [data-modal-panel] {
+    height: calc(100vh - 32px);
+  }
+  @media (max-width: 768px) {
+    [data-modal-panel] {
+      height: auto;
+      max-height: calc(100vh - 32px);
+    }
+    [data-chart-area] {
+      flex: none !important;
+      min-height: 0 !important;
+      height: clamp(280px, 55vh, 500px) !important;
+    }
+  }
+`}</style>
       {/* Inner panel — stop click propagation so backdrop-click-to-close works */}
       <div
+        data-modal-panel=""
         role="presentation"
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -226,7 +243,6 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
           display: 'flex',
           flexDirection: 'column',
           gap: 0,
-          height: 'calc(100vh - 32px)',
           overflow: 'hidden',
         }}
       >
@@ -299,12 +315,15 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
         </div>
 
         {/* Chart area — takes remaining height */}
-        <div style={{
-          flex: 1,
-          minHeight: '400px',
-          padding: '0 20px 20px',
-          position: 'relative',
-        }}>
+        <div
+          data-chart-area=""
+          style={{
+            flex: 1,
+            minHeight: '400px',
+            padding: '0 20px 20px',
+            position: 'relative',
+          }}
+        >
           {loading && (
             <div
               data-testid="modal-chart-skeleton"

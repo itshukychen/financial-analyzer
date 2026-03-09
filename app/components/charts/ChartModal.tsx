@@ -226,7 +226,7 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
           display: 'flex',
           flexDirection: 'column',
           gap: 0,
-          maxHeight: 'calc(100vh - 32px)',
+          height: 'calc(100vh - 32px)',
           overflow: 'hidden',
         }}
       >

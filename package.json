@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:all": "npm run test:coverage && npm run test:e2e"
+    "test:all": "npm run test:coverage && npm run test:e2e",
+    "backfill-options": "tsx scripts/backfill-option-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

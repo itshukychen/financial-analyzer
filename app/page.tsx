@@ -4,6 +4,7 @@ import Link from 'next/link';
 import PageHeader from './components/PageHeader';
 import PlaceholderWidget from './components/PlaceholderWidget';
 import MarketChartsWidget from './components/charts/MarketChartsWidget';
+import OptionProjectionWidget from './components/options/OptionProjectionWidget';
 import { getLatestReport, PERIOD_LABELS } from '../lib/db';
 
 export default function DashboardPage() {
@@ -107,6 +108,11 @@ export default function DashboardPage() {
       {/* Live market charts — last 7 trading days */}
       <div style={{ marginBottom: '24px' }}>
         <MarketChartsWidget />
+      </div>
+
+      {/* Option Projection Widget */}
+      <div className="mb-4">
+        <OptionProjectionWidget />
       </div>
 
       {/* Full-width report widget */}

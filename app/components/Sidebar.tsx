@@ -41,6 +41,15 @@ const navItems = [
     ),
   },
   {
+    label: 'Option Projection',
+    href: '/reports/option-projection',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <polyline points="2,14 5,8 9,11 14,2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     label: 'Watchlist',
     href: '/watchlist',
     icon: (

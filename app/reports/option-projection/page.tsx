@@ -401,7 +401,7 @@ function getHeadline(snapshot: SnapshotData): string {
   return '📊 Normal volatility regime — balanced market';
 }
 
-function getSkewInterpretation(skew: any): string {
+function getSkewInterpretation(skew: SnapshotData['skew']): string {
   if (skew.skew_direction === 'put_heavy') {
     return 'Puts are more expensive than calls (skew ratio > 1.05). Market participants are buying downside protection, indicating concern about potential drops.';
   } else if (skew.skew_direction === 'call_heavy') {

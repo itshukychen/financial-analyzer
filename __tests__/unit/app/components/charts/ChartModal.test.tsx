@@ -132,9 +132,6 @@ describe('ChartModal — structure and labels (AC-1.2, AC-1.3, AC-1.4)', () => {
   it('AC-1.4: chart area has min-height of 400px', () => {
     stubFetchPending();
     const { container } = renderModal();
-    // The chart container wrapper has minHeight set to 400px
-    const chartContainer = container.querySelector('[data-testid="modal-chart-container"]')
-      ?.parentElement as HTMLElement | null;
     // Find the div wrapping the chart area (parent of modal-chart-container)
     const chartArea = container.querySelector('[data-testid="modal-chart-container"]')
       ?.closest('[style*="400px"]') as HTMLElement | null;

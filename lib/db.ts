@@ -69,20 +69,6 @@ const SCHEMA_V3 = `
     ON option_projections(date DESC, ticker);
 `;
 
-const SCHEMA_V2 = `
-  CREATE TABLE IF NOT EXISTS reports (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    date         TEXT    NOT NULL,
-    period       TEXT    NOT NULL DEFAULT 'eod',
-    generated_at INTEGER NOT NULL,
-    ticker_data  TEXT    NOT NULL,
-    report_json  TEXT    NOT NULL,
-    model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5',
-    UNIQUE(date, period)
-  );
-  CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC, period ASC);
-`;
-
 export type ReportPeriod = 'morning' | 'midday' | 'eod';
 
 export const PERIOD_LABELS: Record<ReportPeriod, string> = {
@@ -94,6 +80,22 @@ export const PERIOD_LABELS: Record<ReportPeriod, string> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type VolatilityRegime = 'low' | 'normal' | 'high';
+
+// Raw database row types (before JSON parsing)
+export interface OptionSnapshotRow extends Omit<OptionSnapshot, 'raw_json'> {
+  raw_json: string;
+}
+
+export interface OptionProjectionRow {
+  id: number;
+  date: string;
+  ticker: string;
+  horizon_days: number;
+  prob_distribution: string; // JSON string
+  key_levels: string; // JSON string
+  regime_classification: VolatilityRegime | null;
+  created_at: number;
+}
 
 export interface ReportRow {
   id:           number;
@@ -376,7 +378,7 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionSnapshot(date: string, ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE date = ? AND ticker = ? AND expiry = ?'
-    ).get(date, ticker, expiry) as any;
+    ).get(date, ticker, expiry) as OptionSnapshotRow | undefined;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -384,7 +386,7 @@ export function createDb(dbPath: string): DbInstance {
   function getLatestOptionSnapshot(ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE ticker = ? AND expiry = ? ORDER BY date DESC LIMIT 1'
-    ).get(ticker, expiry) as any;
+    ).get(ticker, expiry) as OptionSnapshotRow | undefined;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -412,7 +414,7 @@ export function createDb(dbPath: string): DbInstance {
 
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(projection.date, projection.ticker, projection.horizon_days) as any;
+    ).get(projection.date, projection.ticker, projection.horizon_days) as OptionProjectionRow;
     
     return parseOptionProjection(raw);
   }
@@ -420,21 +422,21 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null {
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(date, ticker, horizonDays) as any;
+    ).get(date, ticker, horizonDays) as OptionProjectionRow | undefined;
     
     return raw ? parseOptionProjection(raw) : null;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  function parseOptionSnapshot(raw: any): OptionSnapshot {
+  function parseOptionSnapshot(raw: OptionSnapshotRow): OptionSnapshot {
     return {
       ...raw,
       prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution) : [],
     };
   }
 
-  function parseOptionProjection(raw: any): OptionProjection {
+  function parseOptionProjection(raw: OptionProjectionRow): OptionProjection {
     return {
       ...raw,
       prob_distribution: JSON.parse(raw.prob_distribution),

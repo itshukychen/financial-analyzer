@@ -104,7 +104,6 @@ test.describe('Widget to Report Navigation (E2E)', () => {
 
     // Get initial IV value
     const ivValue = page.locator('text=/IV|volatility/i').first();
-    const initialText = await ivValue.textContent().catch(() => '');
 
     // Wait for 5+ minutes would be ideal, but we'll simulate with an API call refresh
     // In a real test, you might mock time or wait for actual refresh

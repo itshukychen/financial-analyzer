@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
       strike: searchParams.get('strike') ? parseFloat(searchParams.get('strike')!) : undefined,
       expiry: searchParams.get('expiry') || undefined,
       optionType: (searchParams.get('optionType') as 'call' | 'put') || 'call',
-      range: (searchParams.get('range') as string) || '1D',
+      range: (searchParams.get('range') as '1D' | '5D' | '1M' | '3M' | '6M' | '1Y') || '1D',
     };
 
     // Validate parameters

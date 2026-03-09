@@ -162,9 +162,9 @@ async function main() {
         option_type: options.type,
         timestamp: point.timestamp,
         price: point.price,
-        bid: point.bid,
-        ask: point.ask,
-        volume: point.volume,
+        bid: point.bid ?? null,
+        ask: point.ask ?? null,
+        volume: point.volume ?? null,
       });
       inserted++;
       

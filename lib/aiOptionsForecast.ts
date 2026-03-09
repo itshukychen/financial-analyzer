@@ -71,7 +71,7 @@ export async function generateAIAnalysis(
   if (useCache) {
     const cached = getAIForecast(context.ticker, context.date);
     if (cached && isCacheFresh(cached.created_at)) {
-      return parseForecastFromDB(cached);
+      return JSON.parse(cached.forecast_json) as AIOptionsForecast;
     }
   }
 
@@ -110,7 +110,7 @@ export async function generateAIAnalysis(
     const cached = getAIForecast(context.ticker, context.date);
     if (cached) {
       console.warn('Using stale cached forecast due to API error');
-      return parseForecastFromDB(cached);
+      return JSON.parse(cached.forecast_json) as AIOptionsForecast;
     }
 
     throw new Error('AI forecast generation failed and no cache available');
@@ -180,31 +180,4 @@ function isCacheFresh(createdAt: string): boolean {
   return cacheAge < fourHours;
 }
 
-function parseForecastFromDB(row: Record<string, unknown>): AIOptionsForecast {
-  return {
-    summary: row.summary,
-    outlook: row.outlook,
-    priceTargets: {
-      conservative: row.pt_conservative,
-      base: row.pt_base,
-      aggressive: row.pt_aggressive,
-      confidence: row.pt_confidence,
-    },
-    regimeAnalysis: {
-      classification: row.regime_classification,
-      justification: row.regime_justification,
-      recommendation: row.regime_recommendation,
-    },
-    tradingLevels: {
-      keySupport: row.key_support,
-      keyResistance: row.key_resistance,
-      profitTargets: row.profit_targets ? JSON.parse(row.profit_targets) : [],
-      stopLoss: row.stop_loss,
-    },
-    confidence: {
-      overall: row.overall_confidence,
-      reasoning: row.confidence_reasoning,
-    },
-    snapshotDate: row.snapshot_date,
-  };
-}
+

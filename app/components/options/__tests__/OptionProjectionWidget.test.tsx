@@ -2,8 +2,42 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import OptionProjectionWidget from '../OptionProjectionWidget';
 
-// Mock fetch globally
-global.fetch = vi.fn();
+// Type definitions for mock data structures
+interface VolatilityData {
+  iv_30d: number;
+  iv_rank: number;
+}
+
+interface ImpliedMoveData {
+  '1w_move_pct': number;
+}
+
+type VolatilityRegime = 'low' | 'normal' | 'high';
+
+interface SnapshotData {
+  volatility: VolatilityData;
+  implied_move: ImpliedMoveData;
+  regime: VolatilityRegime;
+  timestamp: string;
+}
+
+interface MockResponse {
+  ok: boolean;
+  statusText?: string;
+  json?: () => Promise<SnapshotData | null>;
+}
+
+interface MockFetchType extends Mock<Promise<MockResponse>> {
+  mockResolvedValueOnce: (value: MockResponse) => MockFetchType;
+  mockResolvedValue: (value: MockResponse) => MockFetchType;
+  mockRejectedValueOnce: (value: Error) => MockFetchType;
+  mockImplementationOnce: (fn: () => Promise<never>) => MockFetchType;
+}
+
+type Mock<T> = ReturnType<typeof vi.fn<[], T>>;
+
+// Mock fetch globally with proper typing
+global.fetch = vi.fn() as unknown as MockFetchType;
 
 describe('OptionProjectionWidget', () => {
   const mockSnapshotData = {
@@ -23,7 +57,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Component Rendering with Props', () => {
     it('should render the component title', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -36,7 +70,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should fetch data from correct API endpoint on mount', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -50,7 +84,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render all data fields when data loads successfully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -70,7 +104,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render StatCard components with correct labels', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -87,7 +121,7 @@ describe('OptionProjectionWidget', () => {
   describe('Loading State', () => {
     it('should display loading skeleton while data is being fetched', () => {
       // Delay the fetch to keep loading state
-      (global.fetch as any).mockImplementationOnce(
+      (global.fetch as unknown as MockFetchType).mockImplementationOnce(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -99,7 +133,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should show multiple loading skeleton placeholders', () => {
-      (global.fetch as any).mockImplementationOnce(
+      (global.fetch as unknown as MockFetchType).mockImplementationOnce(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -111,7 +145,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should transition from loading to loaded state', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -130,7 +164,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Error State', () => {
     it('should display error message when API request fails', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: false,
         statusText: 'Internal Server Error',
       });
@@ -144,7 +178,7 @@ describe('OptionProjectionWidget', () => {
 
     it('should display specific error details when provided', async () => {
       const errorMessage = 'Failed to connect to pricing service';
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: false,
         statusText: errorMessage,
       });
@@ -157,7 +191,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should handle fetch network errors gracefully', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as unknown as MockFetchType).mockRejectedValueOnce(
         new Error('Network error occurred')
       );
 
@@ -169,7 +203,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render error state with proper styling', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: false,
         statusText: 'Error',
       });
@@ -183,7 +217,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should display "no data" message if response body is null', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => null,
       });
@@ -197,7 +231,7 @@ describe('OptionProjectionWidget', () => {
 
     it('should log error to console for debugging', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as unknown as MockFetchType).mockRejectedValueOnce(
         new Error('Test error')
       );
 
@@ -217,7 +251,7 @@ describe('OptionProjectionWidget', () => {
   describe('Auto-Refresh Interval (5 minutes)', () => {
     it('should set up an interval timer on component mount', async () => {
       const setIntervalSpy = vi.spyOn(global, 'setInterval');
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -236,7 +270,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should make initial fetch call with correct endpoint', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -250,9 +284,9 @@ describe('OptionProjectionWidget', () => {
 
     it('should clear interval on component unmount', async () => {
       const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
-      const setIntervalSpy = vi.spyOn(global, 'setInterval').mockReturnValue(123 as any);
+      const setIntervalSpy = vi.spyOn(global, 'setInterval').mockReturnValue(123 as unknown as NodeJS.Timeout);
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -274,7 +308,7 @@ describe('OptionProjectionWidget', () => {
     it('should handle errors during refresh without stopping interval setup', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: false,
         statusText: 'Error',
       });
@@ -294,12 +328,12 @@ describe('OptionProjectionWidget', () => {
 
   describe('IV Regime Color Coding', () => {
     it('should display green color for LOW volatility regime', async () => {
-      const lowRegimeData = {
+      const lowRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'low' as const,
+        regime: 'low',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => lowRegimeData,
       });
@@ -313,12 +347,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should display red color for HIGH volatility regime', async () => {
-      const highRegimeData = {
+      const highRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'high' as const,
+        regime: 'high',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => highRegimeData,
       });
@@ -332,7 +366,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should display neutral color for NORMAL volatility regime', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -346,12 +380,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render regime badge with appropriate background color for LOW regime', async () => {
-      const lowRegimeData = {
+      const lowRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'low' as const,
+        regime: 'low',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => lowRegimeData,
       });
@@ -366,12 +400,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render regime badge with appropriate background color for HIGH regime', async () => {
-      const highRegimeData = {
+      const highRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'high' as const,
+        regime: 'high',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => highRegimeData,
       });
@@ -387,7 +421,7 @@ describe('OptionProjectionWidget', () => {
 
     it('should display correct emoji for each regime', async () => {
       // Test LOW regime
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ...mockSnapshotData, regime: 'low' as const }),
       });
@@ -401,7 +435,7 @@ describe('OptionProjectionWidget', () => {
       unmountLow();
 
       // Test HIGH regime
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ...mockSnapshotData, regime: 'high' as const }),
       });
@@ -415,7 +449,7 @@ describe('OptionProjectionWidget', () => {
       unmountHigh();
 
       // Test NORMAL regime
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ...mockSnapshotData, regime: 'normal' as const }),
       });
@@ -428,7 +462,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should apply proper styling classes to regime badge', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -445,7 +479,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Implied Move Display', () => {
     it('should display implied move with correct formatting', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -458,7 +492,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should display implied move in StatCard with correct label', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -474,12 +508,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should format high implied move values correctly', async () => {
-      const highImpliedMoveData = {
+      const highImpliedMoveData: SnapshotData = {
         ...mockSnapshotData,
         implied_move: { '1w_move_pct': 5.75 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => highImpliedMoveData,
       });
@@ -492,12 +526,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should format low implied move values correctly', async () => {
-      const lowImpliedMoveData = {
+      const lowImpliedMoveData: SnapshotData = {
         ...mockSnapshotData,
         implied_move: { '1w_move_pct': 0.5 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => lowImpliedMoveData,
       });
@@ -510,7 +544,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should format IV with correct decimal places', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -523,7 +557,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should display IV rank value', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -536,12 +570,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should handle zero implied move value', async () => {
-      const zeroImpliedMoveData = {
+      const zeroImpliedMoveData: SnapshotData = {
         ...mockSnapshotData,
         implied_move: { '1w_move_pct': 0 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => zeroImpliedMoveData,
       });
@@ -554,12 +588,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should handle very high IV values', async () => {
-      const highIVData = {
+      const highIVData: SnapshotData = {
         ...mockSnapshotData,
         volatility: { iv_30d: 99.99, iv_rank: 100 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => highIVData,
       });
@@ -572,12 +606,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should handle very low IV values', async () => {
-      const lowIVData = {
+      const lowIVData: SnapshotData = {
         ...mockSnapshotData,
         volatility: { iv_30d: 0.5, iv_rank: 1 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => lowIVData,
       });
@@ -590,12 +624,12 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should handle IV rank of 0', async () => {
-      const zeroRankData = {
+      const zeroRankData: SnapshotData = {
         ...mockSnapshotData,
         volatility: { iv_30d: 20, iv_rank: 0 },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => zeroRankData,
       });
@@ -613,12 +647,12 @@ describe('OptionProjectionWidget', () => {
       const now = new Date();
       const timestamp = now.toISOString();
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockSnapshotData,
           timestamp,
-        }),
+        } as SnapshotData),
       });
 
       render(<OptionProjectionWidget />);
@@ -634,12 +668,12 @@ describe('OptionProjectionWidget', () => {
     it('should format timestamp in America/New_York timezone', async () => {
       const timestamp = new Date('2026-03-09T20:00:00Z').toISOString();
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockSnapshotData,
           timestamp,
-        }),
+        } as SnapshotData),
       });
 
       render(<OptionProjectionWidget />);
@@ -653,12 +687,12 @@ describe('OptionProjectionWidget', () => {
     it('should handle future timestamps correctly', async () => {
       const futureTimestamp = new Date(Date.now() + 1000000).toISOString();
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockSnapshotData,
           timestamp: futureTimestamp,
-        }),
+        } as SnapshotData),
       });
 
       render(<OptionProjectionWidget />);
@@ -671,7 +705,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Link to Full Analysis', () => {
     it('should render link to full analysis report', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -686,7 +720,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should have proper styling for the link', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -703,7 +737,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Container Styling', () => {
     it('should render container with proper structure', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -719,7 +753,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render container with styled elements', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -737,7 +771,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('StatCard Grid Layout', () => {
     it('should render StatCards in a 2-column grid', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -751,7 +785,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render exactly 2 StatCards', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -769,7 +803,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Header Layout', () => {
     it('should display header with title and timestamp', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -784,7 +818,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should render timestamp in header', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -801,7 +835,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Component Lifecycle', () => {
     it('should only call fetch once on initial mount', async () => {
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as unknown as MockFetchType).mockResolvedValue({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -816,7 +850,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('State Management', () => {
     it('should set loading state to false after successful fetch', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -832,7 +866,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should set error state to null on successful fetch', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => mockSnapshotData,
       });
@@ -846,7 +880,7 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should set error state on failed fetch', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: false,
         statusText: 'Not Found',
       });
@@ -862,12 +896,12 @@ describe('OptionProjectionWidget', () => {
   describe('Multiple Regimes', () => {
     it('should switch between regime displays correctly', async () => {
       // First render with low regime
-      const lowRegimeData = {
+      const lowRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'low' as const,
+        regime: 'low',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => lowRegimeData,
       });
@@ -881,12 +915,12 @@ describe('OptionProjectionWidget', () => {
       unmountLow();
 
       // Second render with normal regime
-      const normalRegimeData = {
+      const normalRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'normal' as const,
+        regime: 'normal',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => normalRegimeData,
       });
@@ -900,12 +934,12 @@ describe('OptionProjectionWidget', () => {
       unmountNormal();
 
       // Third render with high regime
-      const highRegimeData = {
+      const highRegimeData: SnapshotData = {
         ...mockSnapshotData,
-        regime: 'high' as const,
+        regime: 'high',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
         ok: true,
         json: async () => highRegimeData,
       });
@@ -920,7 +954,7 @@ describe('OptionProjectionWidget', () => {
 
   describe('Data Formatting', () => {
     it('should format various implied move percentages consistently', async () => {
-      const testCases = [
+      const testCases: Array<{ value: number; expected: string }> = [
         { value: 1.5, expected: '±1.5%' },
         { value: 2.5, expected: '±2.5%' },
         { value: 10.25, expected: '±10.3%' },
@@ -928,12 +962,12 @@ describe('OptionProjectionWidget', () => {
       ];
 
       for (const testCase of testCases) {
-        const data = {
+        const data: SnapshotData = {
           ...mockSnapshotData,
           implied_move: { '1w_move_pct': testCase.value },
         };
 
-        (global.fetch as any).mockResolvedValueOnce({
+        (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
           ok: true,
           json: async () => data,
         });
@@ -949,19 +983,19 @@ describe('OptionProjectionWidget', () => {
     });
 
     it('should format various IV percentages consistently', async () => {
-      const testCases = [
+      const testCases: Array<{ value: number; expected: string }> = [
         { value: 15, expected: '15.0%' },
         { value: 28.5, expected: '28.5%' },
         { value: 45.75, expected: '45.8%' },
       ];
 
       for (const testCase of testCases) {
-        const data = {
+        const data: SnapshotData = {
           ...mockSnapshotData,
           volatility: { iv_30d: testCase.value, iv_rank: 50 },
         };
 
-        (global.fetch as any).mockResolvedValueOnce({
+        (global.fetch as unknown as MockFetchType).mockResolvedValueOnce({
           ok: true,
           json: async () => data,
         });

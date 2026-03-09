@@ -142,8 +142,20 @@ export async function mockFearGreedAPI(page: import('@playwright/test').Page) {
 export async function mockChartAPI(page: import('@playwright/test').Page) {
   await page.route('**/api/market/chart/**', (route) => {
     const url = route.request().url();
-    const ticker = url.split('/api/market/chart/')[1];
-    const data = MOCK_CHART_RESPONSES[ticker];
+    // Strip query string so range param doesn't break ticker lookup
+    const rawTicker = url.split('/api/market/chart/')[1]?.split('?')[0] ?? '';
+    const rangeParam = new URL(url).searchParams.get('range');
+
+    // FRED tickers with range=1D return unsupported response
+    if (rangeParam === '1D' && (rawTicker === 'DGS2' || rawTicker === 'DGS10')) {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], unsupported: true }),
+      });
+      return;
+    }
+
+    const data = MOCK_CHART_RESPONSES[rawTicker];
     if (data) {
       route.fulfill({
         contentType: 'application/json',

@@ -156,6 +156,32 @@ export interface OptionProjection {
 
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
+// ─── AI Forecasts Types ───────────────────────────────────────────────────────
+
+export interface AIForecastRow {
+  id: number;
+  ticker: string;
+  date: string;
+  snapshot_date: string;
+  summary: string | null;
+  outlook: string | null;
+  pt_conservative: number | null;
+  pt_base: number | null;
+  pt_aggressive: number | null;
+  pt_confidence: number | null;
+  regime_classification: string | null;
+  regime_justification: string | null;
+  regime_recommendation: string | null;
+  key_support: number | null;
+  key_resistance: number | null;
+  profit_targets: string | null;
+  stop_loss: number | null;
+  overall_confidence: number | null;
+  confidence_reasoning: string | null;
+  created_at: string;
+  ai_model: string;
+}
+
 export interface DbInstance {
   db: Database.Database;
   insertOrReplaceReport(date: string, period: ReportPeriod, tickerData: object, reportJson: object, model: string): ReportRow;
@@ -169,6 +195,10 @@ export interface DbInstance {
   
   insertOptionProjection(projection: Omit<OptionProjection, 'id' | 'created_at'>): OptionProjection;
   getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null;
+  
+  insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow;
+  getAIForecast(ticker: string, date: string): AIForecastRow | null;
+  getPreviousAIForecast(ticker: string, date: string): AIForecastRow | null;
 }
 
 // ─── Migration: v1 → v2 → v3 ────────────────────────────────────────────────
@@ -180,10 +210,7 @@ function migrate(db: Database.Database): void {
   ).get();
   
   // Migrate v1 → v2
-  if (cols.includes('period')) {
-    // v2 already or later
-    if (hasOptionSnapshots) return; // Already at v3
-  } else {
+  if (!cols.includes('period')) {
     // v1 table exists but lacks period — rebuild
     db.exec(`
       ALTER TABLE reports RENAME TO reports_v1;
@@ -262,6 +289,50 @@ function migrate(db: Database.Database): void {
       );
       CREATE INDEX IF NOT EXISTS idx_option_projections_date 
         ON option_projections(date DESC, ticker);
+    `);
+  }
+
+  // Create AI forecasts table if it doesn't exist
+  const hasAIForecasts = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts'"
+  ).get();
+
+  if (!hasAIForecasts) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_forecasts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker TEXT NOT NULL,
+        date TEXT NOT NULL,
+        snapshot_date TEXT NOT NULL,
+        
+        summary TEXT,
+        outlook TEXT CHECK(outlook IN ('bullish','neutral','bearish')),
+        
+        pt_conservative REAL,
+        pt_base REAL,
+        pt_aggressive REAL,
+        pt_confidence REAL CHECK(pt_confidence >= 0 AND pt_confidence <= 1),
+        
+        regime_classification TEXT CHECK(regime_classification IN ('elevated','normal','depressed')),
+        regime_justification TEXT,
+        regime_recommendation TEXT,
+        
+        key_support REAL,
+        key_resistance REAL,
+        profit_targets TEXT,
+        stop_loss REAL,
+        
+        overall_confidence REAL CHECK(overall_confidence >= 0 AND overall_confidence <= 1),
+        confidence_reasoning TEXT,
+        
+        created_at TEXT DEFAULT (datetime('now')),
+        ai_model TEXT DEFAULT 'claude-sonnet-4-5',
+        
+        UNIQUE(ticker, date, snapshot_date)
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_ticker_date ON ai_forecasts(ticker, date);
+      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_created_at ON ai_forecasts(created_at);
     `);
   }
 }
@@ -429,6 +500,74 @@ export function createDb(dbPath: string): DbInstance {
     return raw ? parseOptionProjection(raw) : null;
   }
 
+  // ─── AI Forecast CRUD ───────────────────────────────────────────────────────
+
+  function insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow {
+    const snapshotDate = analysis.snapshotDate || date;
+    
+    db.prepare(`
+      INSERT INTO ai_forecasts (
+        ticker, date, snapshot_date,
+        summary, outlook,
+        pt_conservative, pt_base, pt_aggressive, pt_confidence,
+        regime_classification, regime_justification, regime_recommendation,
+        key_support, key_resistance, profit_targets, stop_loss,
+        overall_confidence, confidence_reasoning
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ticker, date, snapshot_date) DO UPDATE SET
+        summary = excluded.summary,
+        outlook = excluded.outlook,
+        pt_conservative = excluded.pt_conservative,
+        pt_base = excluded.pt_base,
+        pt_aggressive = excluded.pt_aggressive,
+        pt_confidence = excluded.pt_confidence,
+        regime_classification = excluded.regime_classification,
+        regime_justification = excluded.regime_justification,
+        regime_recommendation = excluded.regime_recommendation,
+        key_support = excluded.key_support,
+        key_resistance = excluded.key_resistance,
+        profit_targets = excluded.profit_targets,
+        stop_loss = excluded.stop_loss,
+        overall_confidence = excluded.overall_confidence,
+        confidence_reasoning = excluded.confidence_reasoning
+    `).run(
+      ticker,
+      date,
+      snapshotDate,
+      analysis.summary,
+      analysis.outlook,
+      analysis.priceTargets?.conservative ?? null,
+      analysis.priceTargets?.base ?? null,
+      analysis.priceTargets?.aggressive ?? null,
+      analysis.priceTargets?.confidence ?? null,
+      analysis.regimeAnalysis?.classification ?? null,
+      analysis.regimeAnalysis?.justification ?? null,
+      analysis.regimeAnalysis?.recommendation ?? null,
+      analysis.tradingLevels?.keySupport ?? null,
+      analysis.tradingLevels?.keyResistance ?? null,
+      analysis.tradingLevels?.profitTargets ? JSON.stringify(analysis.tradingLevels.profitTargets) : null,
+      analysis.tradingLevels?.stopLoss ?? null,
+      analysis.confidence?.overall ?? null,
+      analysis.confidence?.reasoning ?? null,
+    );
+
+    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, date) as AIForecastRow;
+  }
+
+  function getAIForecast(ticker: string, date: string): AIForecastRow | null {
+    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, date) as AIForecastRow | null;
+  }
+
+  function getPreviousAIForecast(ticker: string, date: string): AIForecastRow | null {
+    // Get the forecast from the previous business day
+    const previousDate = new Date(date);
+    previousDate.setDate(previousDate.getDate() - 1);
+    const previousDateStr = previousDate.toISOString().split('T')[0];
+    
+    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1').get(ticker, previousDateStr) as AIForecastRow | null;
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: OptionSnapshotRow): OptionSnapshot {
@@ -441,8 +580,8 @@ export function createDb(dbPath: string): DbInstance {
   function parseOptionProjection(raw: OptionProjectionRow): OptionProjection {
     return {
       ...raw,
-      prob_distribution: JSON.parse(raw.prob_distribution),
-      key_levels: JSON.parse(raw.key_levels),
+      prob_distribution: JSON.parse(raw.prob_distribution as string),
+      key_levels: JSON.parse(raw.key_levels as string),
     };
   }
 
@@ -457,6 +596,9 @@ export function createDb(dbPath: string): DbInstance {
     getLatestOptionSnapshot,
     insertOptionProjection,
     getOptionProjection,
+    insertOrReplaceAIForecast,
+    getAIForecast,
+    getPreviousAIForecast,
   };
 }
 
@@ -481,5 +623,10 @@ export const getOptionSnapshot        = _instance.getOptionSnapshot.bind(_instan
 export const getLatestOptionSnapshot  = _instance.getLatestOptionSnapshot.bind(_instance);
 export const insertOptionProjection   = _instance.insertOptionProjection.bind(_instance);
 export const getOptionProjection      = _instance.getOptionProjection.bind(_instance);
+
+// AI Forecasts
+export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
+export const getAIForecast             = _instance.getAIForecast.bind(_instance);
+export const getPreviousAIForecast     = _instance.getPreviousAIForecast.bind(_instance);
 
 export default _instance.db;

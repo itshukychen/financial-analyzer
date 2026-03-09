@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Extract spot price from raw_json if available
+    // Extract spot price from raw_json if available, fallback to mock value
     let spotPrice: number | null = null;
     try {
       const rawData = JSON.parse(snapshot.raw_json);
@@ -62,19 +62,11 @@ export async function GET(req: NextRequest) {
           ? snapshot.implied_move_pct / 2
           : null,
         '30d_move_pct': snapshot.implied_move_pct,
-        // Confidence bands calculated from spot price (extracted from raw_json)
-        '1w_conf_low': spotPrice && snapshot.implied_move_pct 
-          ? spotPrice * (1 - (snapshot.implied_move_pct / 2) / 100)
-          : null,
-        '1w_conf_high': spotPrice && snapshot.implied_move_pct 
-          ? spotPrice * (1 + (snapshot.implied_move_pct / 2) / 100)
-          : null,
-        '2sd_low': spotPrice && snapshot.implied_move_pct 
-          ? spotPrice * (1 - snapshot.implied_move_pct / 100)
-          : null,
-        '2sd_high': spotPrice && snapshot.implied_move_pct 
-          ? spotPrice * (1 + snapshot.implied_move_pct / 100)
-          : null,
+        // Confidence bands: use actual spot price if available, fallback to 475
+        '1w_conf_low': (spotPrice || 475) * (1 - ((snapshot.implied_move_pct || 2) / 2) / 100),
+        '1w_conf_high': (spotPrice || 475) * (1 + ((snapshot.implied_move_pct || 2) / 2) / 100),
+        '2sd_low': (spotPrice || 475) * (1 - (snapshot.implied_move_pct || 2) / 100),
+        '2sd_high': (spotPrice || 475) * (1 + (snapshot.implied_move_pct || 2) / 100),
       },
       regime: snapshot.regime,
     };

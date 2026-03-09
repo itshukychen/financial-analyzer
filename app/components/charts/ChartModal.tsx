@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import OptionsOverlaySelector, { OverlayConfig } from './OptionsOverlaySelector';
 
 const VALID_RANGES = ['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD'] as const;
 type Range = typeof VALID_RANGES[number];
@@ -27,10 +28,13 @@ interface RangeData {
 }
 
 export default function ChartModal({ ticker, label, formatValue, onClose }: ChartModalProps) {
-  const [range, setRange]     = useState<Range>('1M');
-  const [data, setData]       = useState<RangeData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [range, setRange]              = useState<Range>('1M');
+  const [data, setData]                = useState<RangeData | null>(null);
+  const [loading, setLoading]          = useState(true);
+  const [error, setError]              = useState<string | null>(null);
+  const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
+  const [overlayData, setOverlayData]  = useState<any>(null);
+  const [overlayLoading, setOverlayLoading] = useState(false);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef        = useRef<HTMLDivElement>(null);
@@ -288,30 +292,43 @@ export default function ChartModal({ ticker, label, formatValue, onClose }: Char
           </button>
         </div>
 
-        {/* Range buttons row */}
-        <div style={{ display: 'flex', gap: '6px', padding: '12px 20px' }}>
-          {VALID_RANGES.map((r) => (
-            <button
-              key={r}
-              data-testid={`range-btn-${r}`}
-              onClick={() => { if (!isDisabled(r)) setRange(r); }}
-              disabled={isDisabled(r)}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '6px',
-                border: range === r ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: range === r ? 'rgba(99,102,241,0.15)' : 'transparent',
-                color: range === r ? 'var(--accent)' : isDisabled(r) ? 'var(--text-muted)' : 'var(--text-primary)',
-                cursor: isDisabled(r) ? 'not-allowed' : 'pointer',
-                opacity: isDisabled(r) ? 0.4 : 1,
-                fontSize: '12px',
-                fontWeight: 600,
-                transition: 'all 0.1s ease',
-              }}
-            >
-              {r}
-            </button>
-          ))}
+        {/* Range buttons row + Options Overlay Selector */}
+        <div style={{ display: 'flex', gap: '6px', padding: '12px 20px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {VALID_RANGES.map((r) => (
+              <button
+                key={r}
+                data-testid={`range-btn-${r}`}
+                onClick={() => { if (!isDisabled(r)) setRange(r); }}
+                disabled={isDisabled(r)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: range === r ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: range === r ? 'rgba(99,102,241,0.15)' : 'transparent',
+                  color: range === r ? 'var(--accent)' : isDisabled(r) ? 'var(--text-muted)' : 'var(--text-primary)',
+                  cursor: isDisabled(r) ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled(r) ? 0.4 : 1,
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.1s ease',
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          
+          {/* Options Overlay Selector */}
+          <OptionsOverlaySelector
+            ticker={ticker}
+            onOverlayChange={setOverlayConfig}
+            defaultConfig={{
+              strike: 3000,
+              expiry: '2026-06-17',
+              optionType: 'call',
+            }}
+          />
         </div>
 
         {/* Chart area — takes remaining height */}

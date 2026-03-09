@@ -7,8 +7,8 @@ import type { OptionAnalysisContext } from '../lib/types/aiOptionsForecast';
 async function buildContext(
   ticker: string,
   date: string,
-  snapshot: any,
-  projection: any
+  snapshot: Record<string, unknown>,
+  projection: Record<string, unknown>
 ): Promise<OptionAnalysisContext> {
   return {
     ticker,
@@ -27,7 +27,7 @@ async function buildContext(
       mean: projection.prob_distribution[0]?.price || 200,
       std: 10,
       probDistribution: {},
-      keyLevels: projection.key_levels.map((k: any) => ({
+      keyLevels: projection.key_levels.map((k: Record<string, unknown>) => ({
         price: k.level || k.price || 200,
         probability: k.probability || 0.5,
       })),

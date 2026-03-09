@@ -196,7 +196,7 @@ export interface DbInstance {
   insertOptionProjection(projection: Omit<OptionProjection, 'id' | 'created_at'>): OptionProjection;
   getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null;
   
-  insertOrReplaceAIForecast(ticker: string, date: string, analysis: any): AIForecastRow;
+  insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow;
   getAIForecast(ticker: string, date: string): AIForecastRow | null;
   getPreviousAIForecast(ticker: string, date: string): AIForecastRow | null;
 }
@@ -502,7 +502,7 @@ export function createDb(dbPath: string): DbInstance {
 
   // ─── AI Forecast CRUD ───────────────────────────────────────────────────────
 
-  function insertOrReplaceAIForecast(ticker: string, date: string, analysis: any): AIForecastRow {
+  function insertOrReplaceAIForecast(ticker: string, date: string, analysis: Record<string, unknown>): AIForecastRow {
     const snapshotDate = analysis.snapshotDate || date;
     
     db.prepare(`
@@ -580,8 +580,8 @@ export function createDb(dbPath: string): DbInstance {
   function parseOptionProjection(raw: OptionProjectionRow): OptionProjection {
     return {
       ...raw,
-      prob_distribution: JSON.parse(raw.prob_distribution),
-      key_levels: JSON.parse(raw.key_levels),
+      prob_distribution: JSON.parse(raw.prob_distribution as string),
+      key_levels: JSON.parse(raw.key_levels as string),
     };
   }
 

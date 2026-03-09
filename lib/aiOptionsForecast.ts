@@ -180,7 +180,7 @@ function isCacheFresh(createdAt: string): boolean {
   return cacheAge < fourHours;
 }
 
-function parseForecastFromDB(row: any): AIOptionsForecast {
+function parseForecastFromDB(row: Record<string, unknown>): AIOptionsForecast {
   return {
     summary: row.summary,
     outlook: row.outlook,

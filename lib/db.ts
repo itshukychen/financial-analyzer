@@ -87,18 +87,6 @@ const SCHEMA_V4 = `
     ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
   CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
     ON option_prices(expiry_date);
-
-  CREATE TABLE IF NOT EXISTS ai_forecasts (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticker        TEXT    NOT NULL,
-    date          TEXT    NOT NULL,
-    forecast_json TEXT    NOT NULL,
-    created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    
-    UNIQUE(ticker, date)
-  );
-  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
-    ON ai_forecasts(ticker, date);
 `;
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
@@ -263,14 +251,6 @@ export interface OptionPrice {
   created_at: number;
 }
 
-export interface AIForecast {
-  id:            number;
-  ticker:        string;
-  date:          string;
-  forecast_json: string;
-  created_at:    string;
-}
-
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
@@ -290,9 +270,6 @@ export interface DbInstance {
   insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
   getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
   getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
-  
-  insertOrReplaceAIForecast(ticker: string, date: string, forecastJson: object): AIForecast;
-  getAIForecast(ticker: string, date: string): AIForecast | null;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -534,7 +511,7 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionSnapshot(date: string, ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE date = ? AND ticker = ? AND expiry = ?'
-    ).get(date, ticker, expiry) as any;
+    ).get(date, ticker, expiry) as Record<string, unknown>;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -542,7 +519,7 @@ export function createDb(dbPath: string): DbInstance {
   function getLatestOptionSnapshot(ticker: string, expiry: string): OptionSnapshot | null {
     const raw = db.prepare(
       'SELECT * FROM option_snapshots WHERE ticker = ? AND expiry = ? ORDER BY date DESC LIMIT 1'
-    ).get(ticker, expiry) as any;
+    ).get(ticker, expiry) as Record<string, unknown>;
     
     return raw ? parseOptionSnapshot(raw) : null;
   }
@@ -570,7 +547,7 @@ export function createDb(dbPath: string): DbInstance {
 
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(projection.date, projection.ticker, projection.horizon_days) as any;
+    ).get(projection.date, projection.ticker, projection.horizon_days) as Record<string, unknown>;
     
     return parseOptionProjection(raw);
   }
@@ -578,7 +555,7 @@ export function createDb(dbPath: string): DbInstance {
   function getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null {
     const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
-    ).get(date, ticker, horizonDays) as any;
+    ).get(date, ticker, horizonDays) as Record<string, unknown>;
     
     return raw ? parseOptionProjection(raw) : null;
   }
@@ -630,8 +607,11 @@ export function createDb(dbPath: string): DbInstance {
   }
 
   function getUnderlyingPrices(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ticker: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     startTimestamp: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     endTimestamp: number,
   ): Array<{ timestamp: number; price: number }> {
     // For now, return empty array as we don't have market_data table in schema
@@ -639,42 +619,21 @@ export function createDb(dbPath: string): DbInstance {
     return [];
   }
 
-  // ─── AI Forecast CRUD ────────────────────────────────────────────────────────
-
-  function insertOrReplaceAIForecast(ticker: string, date: string, forecastJson: object): AIForecast {
-    db.prepare(`
-      INSERT INTO ai_forecasts (ticker, date, forecast_json)
-      VALUES (?, ?, ?)
-      ON CONFLICT(ticker, date) DO UPDATE SET
-        forecast_json = excluded.forecast_json
-    `).run(ticker, date, JSON.stringify(forecastJson));
-
-    return db.prepare(
-      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?'
-    ).get(ticker, date) as AIForecast;
-  }
-
-  function getAIForecast(ticker: string, date: string): AIForecast | null {
-    return (db.prepare(
-      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?'
-    ).get(ticker, date) as AIForecast) ?? null;
-  }
-
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  function parseOptionSnapshot(raw: any): OptionSnapshot {
+  function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
     return {
       ...raw,
-      prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution) : [],
-    };
+      prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution as string) : [],
+    } as OptionSnapshot;
   }
 
-  function parseOptionProjection(raw: any): OptionProjection {
+  function parseOptionProjection(raw: Record<string, unknown>): OptionProjection {
     return {
       ...raw,
-      prob_distribution: JSON.parse(raw.prob_distribution),
-      key_levels: JSON.parse(raw.key_levels),
-    };
+      prob_distribution: JSON.parse(raw.prob_distribution as string),
+      key_levels: JSON.parse(raw.key_levels as string),
+    } as OptionProjection;
   }
 
   return {
@@ -691,8 +650,6 @@ export function createDb(dbPath: string): DbInstance {
     insertOptionPrice,
     getOptionPrices,
     getUnderlyingPrices,
-    insertOrReplaceAIForecast,
-    getAIForecast,
   };
 }
 
@@ -722,9 +679,5 @@ export const getOptionProjection      = _instance.getOptionProjection.bind(_inst
 export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
 export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
 export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
-
-// AI Forecasts
-export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
-export const getAIForecast             = _instance.getAIForecast.bind(_instance);
 
 export default _instance.db;

@@ -410,9 +410,11 @@ export function createDb(dbPath: string): DbInstance {
       projection.regime_classification ?? null,
     );
 
-    return db.prepare(
+    const raw = db.prepare(
       'SELECT * FROM option_projections WHERE date = ? AND ticker = ? AND horizon_days = ?'
     ).get(projection.date, projection.ticker, projection.horizon_days) as any;
+    
+    return parseOptionProjection(raw);
   }
 
   function getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null {

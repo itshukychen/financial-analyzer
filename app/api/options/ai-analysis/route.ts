@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
       : JSON.parse(projection.key_levels as unknown as string);
 
     const mode = probDistribution.length > 0 ? probDistribution[0].price : 100;
-    const rangeLow = keyLevels.find((k: any) => k.type === '2sd_low')?.level ?? mode * 0.95;
-    const rangeHigh = keyLevels.find((k: any) => k.type === '2sd_high')?.level ?? mode * 1.05;
+    const rangeLow = keyLevels.find((k: { type: string; level: number }) => k.type === '2sd_low')?.level ?? mode * 0.95;
+    const rangeHigh = keyLevels.find((k: { type: string; level: number }) => k.type === '2sd_high')?.level ?? mode * 1.05;
 
     const projectionData: Projection = {
       ticker,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(analysis);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AI Analysis] Error:', error);
     
     // Try to return stale cache as fallback
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
         sections: [],
         nextDayProjection: { targetLow: 0, targetHigh: 0, mode: 0, confidence: 'low', moveProb: 0, description: '' },
         metadata: { ticker: '', date: '', generatedAt: '', isCached: false, cacheAge: 0, nextUpdate: '' },
-        error: error.message || 'Failed to generate analysis',
+        error: error instanceof Error ? error.message : 'Failed to generate analysis',
       },
       { status: 500 }
     );

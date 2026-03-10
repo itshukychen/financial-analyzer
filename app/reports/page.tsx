@@ -1,11 +1,18 @@
 export const dynamic = 'force-dynamic'; // always render from DB, never statically cache
 
+import dynamic from 'next/dynamic';
 import { getLatestReport, listReports, PERIOD_LABELS, type ReportPeriod } from '../../lib/db';
 import PageHeader        from '../components/PageHeader';
 import ReportHeader      from '../components/reports/ReportHeader';
 import ReportSection     from '../components/reports/ReportSection';
 import DataSnapshot      from '../components/reports/DataSnapshot';
 import type { DailyReport } from '../../scripts/generate-report';
+
+// Lazy load chat panel to avoid blocking page load
+const ReportChatPanel = dynamic(() => import('../components/reports/ReportChatPanel'), {
+  ssr: false,
+  loading: () => <div className="rounded-xl border h-[400px] animate-pulse" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }} />
+});
 
 // ─── Icon helpers (inline SVGs) ───────────────────────────────────────────────
 
@@ -116,16 +123,29 @@ export default function ReportsPage() {
           {/* Data snapshot */}
           <DataSnapshot marketData={report.marketData} />
 
-          {/* Analysis sections — 3-col grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            {SECTIONS.map(({ key, title, icon }) => (
-              <ReportSection
-                key={key}
-                title={title}
-                icon={icon}
-                content={report.analysis[key] as string}
+          {/* Analysis sections with Chat Panel — 2-column layout on desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-4 mb-4">
+            {/* Left: Analysis sections — 3-col grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {SECTIONS.map(({ key, title, icon }) => (
+                <ReportSection
+                  key={key}
+                  title={title}
+                  icon={icon}
+                  content={report.analysis[key] as string}
+                />
+              ))}
+            </div>
+
+            {/* Right: Chat Panel (sticky on desktop) */}
+            <div>
+              <ReportChatPanel
+                reportDate={report.date}
+                reportPeriod={period!}
+                marketData={report.marketData}
+                analysis={report.analysis}
               />
-            ))}
+            </div>
           </div>
 
           {/* Regime probabilities footer */}

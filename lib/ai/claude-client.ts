@@ -1,4 +1,4 @@
-import type { AIAnalysisResponse } from '@/app/types/options-ai';
+import type { AIAnalysisResponse } from '@/lib/types/options-ai';
 
 export async function callClaudeAPI(prompt: string): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;

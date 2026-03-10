@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAnalysisCache, insertOrReplaceAnalysisCache, getOptionSnapshot, getOptionProjection } from '@/lib/db';
 import { callClaudeAPI, parseClaudeResponse } from '@/lib/ai/claude-client';
 import { buildClaudePrompt } from '@/lib/ai/claude-prompt';
-import type { AIAnalysisRequest, AIAnalysisResponse, Snapshot, Projection } from '@/app/types/options-ai';
+import type { AIAnalysisRequest, AIAnalysisResponse, Snapshot, Projection } from '@/lib/types/options-ai';
 
 // Validate required environment variables
 function validateEnvironment(): { valid: boolean; error?: string } {

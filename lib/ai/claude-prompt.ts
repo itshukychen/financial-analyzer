@@ -1,4 +1,4 @@
-import type { Snapshot, Projection } from '@/app/types/options-ai';
+import type { Snapshot, Projection } from '@/lib/types/options-ai';
 
 export function buildClaudePrompt(snapshot: Snapshot, projection: Projection): string {
   return `

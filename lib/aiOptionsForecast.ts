@@ -98,21 +98,10 @@ export async function generateAIAnalysis(
     // Validate
     validateAnalysis(analysis, context);
 
-    // Save to DB
-    insertOrReplaceAIForecast(context.ticker, context.date, analysis);
-
     return analysis;
   } catch (error) {
     console.error('Claude API error:', error);
-
-    // Fallback to cached forecast
-    const cached = getAIForecast(context.ticker, context.date);
-    if (cached) {
-      console.warn('Using stale cached forecast due to API error');
-      return JSON.parse(cached.forecast_json) as AIOptionsForecast;
-    }
-
-    throw new Error('AI forecast generation failed and no cache available');
+    throw new Error('AI forecast generation failed');
   }
 }
 

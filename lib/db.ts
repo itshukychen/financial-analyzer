@@ -622,10 +622,7 @@ export function createDb(dbPath: string): DbInstance {
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
-    return {
-      ...raw,
-      prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution as string) : [],
-    } as OptionSnapshot;
+    return raw as unknown as OptionSnapshot;
   }
 
   function parseOptionProjection(raw: Record<string, unknown>): OptionProjection {

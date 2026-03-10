@@ -4,8 +4,43 @@ import { callClaudeAPI, parseClaudeResponse } from '@/lib/ai/claude-client';
 import { buildClaudePrompt } from '@/lib/ai/claude-prompt';
 import type { AIAnalysisRequest, AIAnalysisResponse, Snapshot, Projection } from '@/app/types/options-ai';
 
+// Validate required environment variables
+function validateEnvironment(): { valid: boolean; error?: string } {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      valid: false,
+      error: 'ANTHROPIC_API_KEY environment variable is not set. Please configure it in .env.local',
+    };
+  }
+  
+  if (process.env.ANTHROPIC_API_KEY === 'your_api_key_here' || process.env.ANTHROPIC_API_KEY.length === 0) {
+    return {
+      valid: false,
+      error: 'ANTHROPIC_API_KEY is not properly configured. Please set a valid API key in .env.local',
+    };
+  }
+  
+  return { valid: true };
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  
+  // Validate environment on request
+  const envValidation = validateEnvironment();
+  if (!envValidation.valid) {
+    console.error('[AI Analysis] Environment validation failed:', envValidation.error);
+    return NextResponse.json(
+      {
+        success: false,
+        sections: [],
+        nextDayProjection: { targetLow: 0, targetHigh: 0, mode: 0, confidence: 'low', moveProb: 0, description: '' },
+        metadata: { ticker: '', date: '', generatedAt: '', isCached: false, cacheAge: 0, nextUpdate: '' },
+        error: envValidation.error,
+      },
+      { status: 503 }
+    );
+  }
   
   try {
     const body: AIAnalysisRequest = await request.json();

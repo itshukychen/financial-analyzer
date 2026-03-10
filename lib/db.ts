@@ -102,19 +102,6 @@ const SCHEMA_V4 = `
     ON ai_forecasts(date DESC, ticker);
   CREATE INDEX IF NOT EXISTS idx_ai_forecasts_expiry 
     ON ai_forecasts(expires_at);
-
-  CREATE TABLE IF NOT EXISTS option_analysis_cache (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticker TEXT NOT NULL,
-    date TEXT NOT NULL,
-    analysis_json TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL,
-    
-    UNIQUE(ticker, date)
-  );
-  CREATE INDEX IF NOT EXISTS idx_cache_lookup ON option_analysis_cache(ticker, date, expires_at);
-  CREATE INDEX IF NOT EXISTS idx_cache_expiry ON option_analysis_cache(expires_at);
 `;
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────

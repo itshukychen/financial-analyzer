@@ -1,0 +1,122 @@
+{
+  "worktrees": [
+    {
+      "featureId": "test-slug-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.380Z",
+      "agents": [],
+      "branch": "feat/test-1",
+      "path": "/tmp/test-worktrees-1773032690338-86z2d7mt06s/worktrees/test-slug-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "test-slug-20260309050450-ef64782c",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.420Z",
+      "agents": [],
+      "branch": "feat/test-2",
+      "path": "/tmp/test-worktrees-1773032690338-86z2d7mt06s/worktrees/test-slug-20260309050450-ef64782c/financial-analyzer"
+    },
+    {
+      "featureId": "my-feature-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.473Z",
+      "agents": [],
+      "branch": "feat/my-feature",
+      "path": "/tmp/test-worktrees-1773032690434-c2abp522z1j/worktrees/my-feature-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "feature-a-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.518Z",
+      "agents": [],
+      "branch": "feat/feature-a",
+      "path": "/tmp/test-worktrees-1773032690480-6g0117asreb/worktrees/feature-a-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "test-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.569Z",
+      "agents": [
+        "Architect",
+        "Engineer"
+      ],
+      "branch": "feat/test",
+      "path": "/tmp/test-worktrees-1773032690528-6gny0oxh1c/worktrees/test-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "collision-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.619Z",
+      "agents": [],
+      "branch": "feat/1",
+      "path": "/tmp/test-worktrees-1773032690577-kgc0wsgrun9/worktrees/collision-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "collision-20260309050450-f14c9608",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.659Z",
+      "agents": [],
+      "branch": "feat/2",
+      "path": "/tmp/test-worktrees-1773032690577-kgc0wsgrun9/worktrees/collision-20260309050450-f14c9608/financial-analyzer"
+    },
+    {
+      "featureId": "to-clean-20260309050450",
+      "status": "cleaned",
+      "createdAt": "2026-03-09T05:04:50.715Z",
+      "agents": [],
+      "branch": "feat/to-clean",
+      "path": "/tmp/test-worktrees-1773032690674-44ujb5jpdte/worktrees/to-clean-20260309050450/financial-analyzer",
+      "cleanedAt": "2026-03-09T05:04:50.731Z"
+    },
+    {
+      "featureId": "temp-20260309050450",
+      "status": "cleaned",
+      "createdAt": "2026-03-09T05:04:50.789Z",
+      "agents": [],
+      "branch": "feat/temp",
+      "path": "/tmp/test-worktrees-1773032690749-zixydaovvwj/worktrees/temp-20260309050450/financial-analyzer",
+      "cleanedAt": "2026-03-09T05:04:50.803Z"
+    },
+    {
+      "featureId": "test-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.854Z",
+      "agents": [],
+      "branch": "invalid-branch",
+      "path": "/tmp/test-worktrees-1773032690814-muec73zfx0g/worktrees/test-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "lifecycle-20260309050450",
+      "status": "cleaned",
+      "createdAt": "2026-03-09T05:04:50.902Z",
+      "agents": [],
+      "branch": "feat/lifecycle",
+      "path": "/tmp/test-worktrees-1773032690863-l5rgxjy2wf/worktrees/lifecycle-20260309050450/financial-analyzer",
+      "cleanedAt": "2026-03-09T05:04:50.916Z"
+    },
+    {
+      "featureId": "feat-1-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.960Z",
+      "agents": [],
+      "branch": "feat/first",
+      "path": "/tmp/test-worktrees-1773032690922-l5k8iw9snvk/worktrees/feat-1-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "feat-2-20260309050450",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:50.998Z",
+      "agents": [],
+      "branch": "feat/second",
+      "path": "/tmp/test-worktrees-1773032690922-l5k8iw9snvk/worktrees/feat-2-20260309050450/financial-analyzer"
+    },
+    {
+      "featureId": "feat-1-20260309050450-d30f139e",
+      "status": "active",
+      "createdAt": "2026-03-09T05:04:51.037Z",
+      "agents": [],
+      "branch": "feat/first-variant",
+      "path": "/tmp/test-worktrees-1773032690922-l5k8iw9snvk/worktrees/feat-1-20260309050450-d30f139e/financial-analyzer"
+    }
+  ]
+}

@@ -521,3 +521,168 @@ describe('ChartModal — crosshair/tooltip branches (lines 138-171, 177-178)', (
     expect(tooltip.style.display).toBe('block');
   });
 });
+
+describe('ChartModal — Options Overlay Selector integration', () => {
+  it('renders the OptionsOverlaySelector component', () => {
+    stubFetchPending();
+    renderModal();
+    // The selector should have a toggle button with "Add Overlay" text
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    expect(toggleButton).toBeInTheDocument();
+  });
+
+  it('OptionsOverlaySelector toggle button is present and clickable', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    expect(toggleButton).not.toBeDisabled();
+    fireEvent.click(toggleButton);
+    // Panel should appear
+    expect(screen.getByText('Option Overlay (^GSPC)')).toBeInTheDocument();
+  });
+
+  it('displays "Add Overlay" text when overlay panel is closed', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    expect(toggleButton).toHaveTextContent('+ Add Overlay');
+  });
+
+  it('toggles overlay panel visibility when button is clicked', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    
+    // Initially closed
+    expect(screen.queryByText('Option Overlay (^GSPC)')).not.toBeInTheDocument();
+    
+    // Click to open
+    fireEvent.click(toggleButton);
+    expect(screen.getByText('Option Overlay (^GSPC)')).toBeInTheDocument();
+    
+    // Click to close
+    fireEvent.click(toggleButton);
+    expect(screen.queryByText('Option Overlay (^GSPC)')).not.toBeInTheDocument();
+  });
+
+  it('renders form fields in the overlay panel (strike, expiry, option type)', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    // Check for form fields by their labels instead of display value
+    expect(screen.getByLabelText('Strike Price')).toBeInTheDocument();
+    expect(screen.getByLabelText('Expiry Date')).toBeInTheDocument();
+    expect(screen.getByLabelText('Option Type')).toBeInTheDocument();
+  });
+
+  it('renders Apply and Clear buttons in the overlay panel', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const applyButton = screen.getByRole('button', { name: 'Apply' });
+    const clearButton = screen.getByRole('button', { name: 'Clear' });
+    
+    expect(applyButton).toBeInTheDocument();
+    expect(clearButton).toBeInTheDocument();
+  });
+
+  it('Allow user to change strike price in overlay selector', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const strikeInput = screen.getByLabelText('Strike Price') as HTMLInputElement;
+    fireEvent.change(strikeInput, { target: { value: '3100' } });
+    
+    expect(strikeInput.value).toBe('3100');
+  });
+
+  it('allows user to change expiry date in overlay selector', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const expiryInput = screen.getByLabelText('Expiry Date') as HTMLInputElement;
+    fireEvent.change(expiryInput, { target: { value: '2026-09-17' } });
+    
+    expect(expiryInput.value).toBe('2026-09-17');
+  });
+
+  it('allows user to change option type in overlay selector', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const typeSelect = screen.getByLabelText('Option Type') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: 'put' } });
+    
+    expect(typeSelect.value).toBe('put');
+  });
+
+  it('Apply button calls onOverlayChange with the config when successful', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const applyButton = screen.getByRole('button', { name: 'Apply' });
+    fireEvent.click(applyButton);
+    
+    await waitFor(() => {
+      // The last fetch call should be to the options-overlay endpoint
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      expect(String(lastCall?.[0] ?? '')).toContain('options-overlay');
+    });
+  });
+
+  it('Clear button clears the overlay config and closes panel', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    const clearButton = screen.getByRole('button', { name: 'Clear' });
+    fireEvent.click(clearButton);
+    
+    // Panel should close
+    expect(screen.queryByText('Option Overlay (^GSPC)')).not.toBeInTheDocument();
+  });
+
+  it('passes correct ticker prop to OptionsOverlaySelector', () => {
+    stubFetchPending();
+    renderModal({ ticker: 'DGS2', label: '2Y Treasury Yield' });
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    // The panel should show the correct ticker
+    expect(screen.getByText('Option Overlay (DGS2)')).toBeInTheDocument();
+  });
+
+  it('OptionsOverlaySelector panel has overlay config state', () => {
+    stubFetchPending();
+    renderModal();
+    const toggleButton = screen.getByTitle('Add option price overlay to chart');
+    fireEvent.click(toggleButton);
+    
+    // Form fields should have default values
+    const strikeInput = screen.getByLabelText('Strike Price') as HTMLInputElement;
+    const expiryInput = screen.getByLabelText('Expiry Date') as HTMLInputElement;
+    const typeSelect = screen.getByLabelText('Option Type') as HTMLSelectElement;
+    
+    expect(strikeInput.value).toBe('3000');
+    expect(expiryInput.value).toBe('2026-06-17');
+    expect(typeSelect.value).toBe('call');
+  });
+});

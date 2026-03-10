@@ -27,12 +27,19 @@
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────────── */
-html,
+html {
+  height: 100vh;
+  overflow: hidden;
+}
+
 body {
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  height: 100%;
 }
 
 /* ── Scrollbars ─────────────────────────────────────────────────────────────── */

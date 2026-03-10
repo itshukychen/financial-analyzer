@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { GET } from '@/app/api/fear-greed/route';
 

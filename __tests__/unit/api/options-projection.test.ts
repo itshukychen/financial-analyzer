@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GET } from '@/app/api/options/projection/route';
 import * as db from '@/lib/db';

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GET } from '@/app/api/options/snapshot/route';
 import * as db from '@/lib/db';
@@ -423,7 +424,7 @@ describe('GET /api/options/snapshot', () => {
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
 
-    const body = await res.json() as any;
+    const body = await res.json();
     expect(body.implied_move['1w_move_pct']).toBeNull();
     expect(body.implied_move['30d_move_pct']).toBeNull();
   });

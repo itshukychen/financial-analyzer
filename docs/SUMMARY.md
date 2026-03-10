@@ -1,320 +1,295 @@
-# Option Price Projection Feature - Summary
+# AI Chat Feature - Architecture Summary
 
-**Status:** Ready for Development  
-**Date:** 2026-03-09  
-**Worktree:** `/home/claw/worktrees/financial-analyzer/feature/option-price-projection`  
-**Port:** 3003
-
----
-
-## 📋 Documents
-
-1. **[PRD](./prd-option-price-projection.md)** - Product requirements, user stories, success criteria
-2. **[Design](./design-option-price-projection.md)** - Technical architecture, API specs, component design
-3. **[Tasks](./tasks-option-price-projection.md)** - Step-by-step implementation guide for engineer
+**Feature:** Report AI Chat Interface  
+**Status:** Design Complete ✅  
+**Ready for Implementation:** Yes  
+**Estimated Effort:** 5-7 days (1 engineer)
 
 ---
 
-## 🎯 What We're Building
+## Overview
 
-**SPWX Put Options Price Projection Analysis**
+This feature adds an interactive AI chat interface to the daily market report, allowing users to ask questions about the current day's market analysis and receive AI-powered responses grounded in the report data.
 
-- **Dashboard Widget:** Quick view of implied volatility, price projections, regime
-- **Report Page:** Detailed analysis with Greeks, probability distributions, AI insights
-- **Data:** Mock data for MVP (30 days backfilled), real API integration in v0.2.1
+### Key Components
 
----
+1. **Backend API** (`/api/reports/chat`)
+   - Validates user input
+   - Enforces rate limits
+   - Builds context from report data
+   - Calls Anthropic Claude API
+   - Returns AI response
 
-## 🏗️ Architecture at a Glance
+2. **Frontend Components**
+   - `ReportChatPanel` - Main container
+   - `ChatMessage` - Message bubbles (user/AI)
+   - `ChatInput` - Input field with send button
+   - `ErrorBanner` - Error display
 
-```
-Database (SQLite)
-  ├─ option_snapshots (IV, Greeks, skew, regime)
-  └─ option_projections (probability distributions, key levels)
-
-Analytics Library (lib/optionsAnalytics.ts)
-  ├─ Historical Volatility Calculator
-  ├─ Greeks (Delta, Gamma, Vega, Theta)
-  └─ Volatility Regime Classifier
-
-API Layer
-  ├─ GET /api/options/snapshot (current metrics)
-  └─ GET /api/options/projection (price forecasts)
-
-UI Components
-  ├─ OptionProjectionWidget (dashboard)
-  └─ OptionProjectionReport (full page)
-```
+3. **Supporting Infrastructure**
+   - Rate limiter (in-memory)
+   - Chat helpers (validation, context building)
+   - Type definitions
+   - Unit + E2E tests
 
 ---
 
-## ✅ Acceptance Criteria
+## Documents Created
 
-### Widget
-- [ ] Displays on dashboard
-- [ ] Shows 30d IV, implied move, regime
-- [ ] Loads in < 500ms
-- [ ] Auto-refreshes every 5 minutes
-- [ ] Links to full report
+### 1. Technical Design (`docs/design-report-ai-chat.md`)
 
-### Report Page
-- [ ] Accessible at `/reports/option-projection`
-- [ ] Executive summary with AI headline
-- [ ] Put IV & skew metrics
-- [ ] Greeks aggregates
-- [ ] Probability distribution (chart placeholder)
-- [ ] Price projection ranges (1w, 4w)
-- [ ] Loads in < 2s
-- [ ] Mobile responsive
+**39KB document covering:**
+- Architecture overview
+- Component specifications
+- API design
+- Data flow
+- Security considerations
+- Performance optimizations
+- Testing strategy
+- Deployment plan
 
-### Data & APIs
-- [ ] 30 days of mock data in database
-- [ ] `/api/options/snapshot` returns valid JSON
-- [ ] `/api/options/projection` returns probability distribution
-- [ ] All calculations accurate (HV, Greeks, regime)
+### 2. Task Breakdown (`docs/tasks-report-ai-chat.md`)
 
-### Testing
-- [ ] Unit tests: > 80% coverage for analytics library
-- [ ] E2E tests: widget → report flow
-- [ ] Performance: widget < 500ms, report < 2s
-- [ ] No console errors
+**58KB document with 27 granular tasks:**
+- Phase 1: Foundation (4 tasks) - Types, dependencies, rate limiter
+- Phase 2: Backend API (4 tasks) - Helpers, API route, testing
+- Phase 3: Frontend Components (5 tasks) - Chat UI, integration
+- Phase 4: Testing & Polish (4 tasks) - Unit/E2E tests, accessibility
+- Phase 5: Documentation & Deployment (4 tasks) - Docs, deployment
+
+Each task includes:
+- Clear acceptance criteria
+- Implementation code
+- Testing requirements
+- Dependencies
 
 ---
 
-## 📊 Key Metrics
+## Key Technical Decisions
 
-| Metric | Target | How to Verify |
-|--------|--------|---------------|
-| Widget Load Time | < 500ms | DevTools Network tab |
-| Report Load Time | < 2s | DevTools Performance tab |
-| Test Coverage | > 80% | `npm test -- --coverage` |
-| Database Rows | 30 (snapshots) + 30 (projections) | SQLite browser |
-| API Response Size | < 50KB | `curl` + `wc -c` |
+### 1. No Conversation Persistence
+- **Decision:** Use sessionStorage only (no database)
+- **Rationale:** Simpler, GDPR-friendly, stateless architecture
+- **Trade-off:** Conversations lost on refresh (acceptable for MVP)
+
+### 2. Rate Limiting
+- **Per-session:** 1 request per 2 seconds
+- **Per-IP:** 100 requests per hour
+- **Implementation:** In-memory (no Redis needed)
+
+### 3. Model Choice
+- **Claude Sonnet 4-5** (not Opus)
+- **Rationale:** Good quality, lower cost (~$0.03-0.05 per conversation)
+- **Token budget:** ~4,000 tokens per request (context + history + response)
+
+### 4. UI Layout
+- **Desktop:** Chat panel on right side (400px wide)
+- **Mobile:** Chat panel below report content
+- **Height:** 400px (desktop), 300px (mobile)
 
 ---
 
-## 🛠️ Quick Start (for Engineer)
+## Implementation Highlights
 
-### 1. Setup
+### Context Injection
+
+The AI receives:
+- System prompt (rules + guidelines)
+- Market data snapshot (SPX, VIX, DXY, yields)
+- All 7 analysis sections (full text)
+- Regime probabilities
+- Conversation history (last 10 messages)
+- User question
+
+### Error Handling
+
+Comprehensive error handling for:
+- Validation errors (empty message, too long)
+- Rate limiting (429 with retry timer)
+- Network failures (retry button)
+- API errors (Anthropic downtime)
+- Token limit exceeded
+
+### Accessibility
+
+WCAG AA compliant:
+- Keyboard navigation (Tab, Enter)
+- Screen reader support (ARIA labels, live regions)
+- Color contrast ≥ 4.5:1
+- Focus indicators
+
+---
+
+## Testing Coverage
+
+### Unit Tests (Vitest)
+- Rate limiter logic
+- Input validation
+- Context building
+- Component state management
+- **Target coverage:** ≥80%
+
+### E2E Tests (Playwright)
+- User flow: ask question → receive answer
+- Multi-turn conversation
+- Error handling
+- Mobile viewport
+- Clear conversation
+
+---
+
+## Deployment Plan
+
+### Pre-Deployment Checklist
+- All tests passing
+- Code coverage ≥80%
+- No TypeScript/ESLint errors
+- Environment variables configured
+- Accessibility tested
+- Performance tested (Lighthouse)
+
+### Deployment Steps
+1. Merge to main branch
+2. Deploy to production (port 3000)
+3. Verify deployment (manual test)
+4. Monitor for 24 hours (logs, latency, cost)
+
+### Rollback Plan
+- Revert commit if critical issues
+- Document post-mortem
+- Fix in feature branch, re-deploy
+
+---
+
+## Success Metrics
+
+### Primary Metrics (1 week)
+- **Chat adoption:** ≥30% (visitors who ask ≥1 question)
+- **Avg questions/session:** ≥2.5
+- **Error rate:** <2%
+- **API latency (p95):** <4s
+
+### Secondary Metrics
+- Time spent on report: +20%
+- Return visitor rate: +10%
+- Support tickets: -15%
+
+---
+
+## Next Steps for Engineer
+
+1. **Start with Phase 1** (Foundation)
+   - Create type definitions
+   - Install dependencies
+   - Implement rate limiter
+   - Write unit tests
+
+2. **Move to Phase 2** (Backend)
+   - Create chat helpers
+   - Build API route
+   - Test with curl
+
+3. **Phase 3** (Frontend)
+   - Build components
+   - Integrate into reports page
+   - Visual testing
+
+4. **Phase 4** (Testing)
+   - Write unit tests
+   - Write E2E tests
+   - Accessibility audit
+
+5. **Phase 5** (Deploy)
+   - Update documentation
+   - Deploy to worktree (port 3002)
+   - Create demo materials
+
+---
+
+## Files Created/Modified
+
+### New Files
+- `types/chat.ts` - Type definitions
+- `app/lib/rate-limiter.ts` - Rate limiting
+- `app/lib/chat-helpers.ts` - Validation, context, AI calls
+- `app/api/reports/chat/route.ts` - API endpoint
+- `app/components/reports/ReportChatPanel.tsx` - Main component
+- `app/components/reports/ChatMessage.tsx` - Message bubble
+- `app/components/reports/ChatInput.tsx` - Input field
+- `app/components/reports/ErrorBanner.tsx` - Error display
+- Unit tests (3 files)
+- E2E tests (1 file)
+
+### Modified Files
+- `app/reports/page.tsx` - Add chat panel
+- `package.json` - New dependencies
+- `README.md` - Feature documentation
+
+---
+
+## Dependencies
+
+### New Dependencies
 ```bash
-cd /home/claw/worktrees/financial-analyzer/feature/option-price-projection
-npm install
+npm install react-markdown remark-gfm
 ```
 
-### 2. Backfill Mock Data
+### Existing Dependencies
+- `@anthropic-ai/sdk` - Already installed ✅
+- `next`, `react`, `react-dom` - Already installed ✅
+- `better-sqlite3` - Already installed ✅
+
+---
+
+## Environment Variables
+
+Required:
 ```bash
-npm run backfill-options  # Creates 30 days of test data
+ANTHROPIC_API_KEY=sk-ant-api03-...
 ```
 
-### 3. Start Dev Server
-```bash
-npm run dev  # Runs on port 3003
-```
+---
 
-### 4. Verify Setup
-```bash
-# Check database
-sqlite3 data/reports.db "SELECT COUNT(*) FROM option_snapshots;"  # Should return 30
+## Cost Estimates
 
-# Test APIs
-curl http://localhost:3003/api/options/snapshot
-curl http://localhost:3003/api/options/projection
-```
+### Per Conversation
+- **Tokens:** ~4,000 (input: 3,000, output: 1,000)
+- **Cost:** ~$0.03-0.05 (Sonnet pricing)
 
-### 5. Follow Task Breakdown
-See [tasks-option-price-projection.md](./tasks-option-price-projection.md) for step-by-step guide.
+### Monthly (assuming 100 daily users, 3 questions each)
+- **Total questions:** ~9,000/month
+- **Total cost:** ~$270-450/month
+- **Acceptable:** Yes (within budget)
 
 ---
 
-## 🔬 Testing
+## Risk Mitigation
 
-### Unit Tests
-```bash
-npm test                          # Run all tests
-npm test -- lib/optionsAnalytics  # Test analytics library
-npm test -- --coverage            # Coverage report
-```
+### Risk: AI Hallucinations
+- **Mitigation:** System prompt enforces report-only data, no inventions
+- **Monitoring:** Manual QA in first week
 
-### E2E Tests
-```bash
-npm run test:e2e                  # Run Playwright tests
-npm run test:e2e -- --ui          # Interactive mode
-```
+### Risk: Token Budget Overrun
+- **Mitigation:** Prune conversation history (last 10 messages only)
+- **Monitoring:** Log token usage per request
 
-### Manual Testing
-1. Visit `http://localhost:3003`
-2. Verify widget appears and loads data
-3. Click "View Full Analysis"
-4. Verify report page renders all sections
-5. Test on mobile (DevTools device emulation)
+### Risk: Cost Overrun
+- **Mitigation:** Rate limiting (100 req/hour), daily cost alerts
+- **Monitoring:** Anthropic billing dashboard
+
+### Risk: User Adoption Fails
+- **Mitigation:** In-app onboarding, default open, example questions
+- **Monitoring:** Analytics (adoption rate, questions/session)
 
 ---
 
-## 📦 Deliverables
+## Questions?
 
-### Code
-- ✅ Database schema extensions (`lib/db.ts`)
-- ✅ Analytics library (`lib/optionsAnalytics.ts`)
-- ✅ Mock data generator (`lib/mockOptionsData.ts`)
-- ✅ Backfill script (`scripts/backfill-option-data.ts`)
-- ✅ API routes (`app/api/options/*`)
-- ✅ Widget component (`app/components/options/OptionProjectionWidget.tsx`)
-- ✅ Report page (`app/reports/option-projection/page.tsx`)
-
-### Tests
-- ✅ Unit tests for analytics (`__tests__/lib/optionsAnalytics.test.ts`)
-- ✅ API integration tests (`__tests__/api/options/*.test.ts`)
-- ✅ E2E tests (`e2e/option-projection.spec.ts`)
-
-### Documentation
-- ✅ PRD (product requirements)
-- ✅ Design doc (technical architecture)
-- ✅ Task breakdown (implementation guide)
-- ✅ README update (feature description)
-- ✅ DEV.md update (developer notes)
+Contact:
+- **Architect Agent** - Technical design questions
+- **Product Manager** - Feature scope, requirements
+- **Engineer Agent** - Implementation questions
 
 ---
 
-## 🚀 Implementation Phases
-
-### Phase 1: Foundation (Database + Mock Data)
-**Est. Time:** 4-6 hours  
-- Extend database schema
-- Create mock data generator
-- Backfill 30 days
-
-### Phase 2: Analytics Library
-**Est. Time:** 6-8 hours  
-- Historical volatility
-- Greeks calculations
-- Regime classifier
-
-### Phase 3: API Layer
-**Est. Time:** 4-6 hours  
-- `/api/options/snapshot`
-- `/api/options/projection`
-
-### Phase 4: UI Components
-**Est. Time:** 8-10 hours  
-- Widget (dashboard)
-- Report page (full analysis)
-- Navigation links
-
-### Phase 5: Integration + Polish
-**Est. Time:** 4-6 hours  
-- Testing (unit + E2E)
-- Performance optimization
-- Documentation
-
-**Total Estimate:** 26-36 hours (3-5 days)
-
----
-
-## 🧪 Validation Checklist
-
-Before marking complete:
-
-**Functionality**
-- [ ] Widget appears on dashboard
-- [ ] Widget displays correct data (IV, implied move, regime)
-- [ ] Widget links to report page
-- [ ] Report page loads without errors
-- [ ] All report sections render
-- [ ] Data flows: DB → API → UI
-
-**Data Integrity**
-- [ ] 30 days of snapshots in database
-- [ ] 30 days of projections in database
-- [ ] Greeks calculations accurate (validate against reference)
-- [ ] Regime classification works correctly
-- [ ] Probability distributions normalized (sum = 1)
-
-**Performance**
-- [ ] Widget loads in < 500ms
-- [ ] Report loads in < 2s
-- [ ] No unnecessary re-renders (React DevTools)
-- [ ] API responses cached appropriately
-
-**Quality**
-- [ ] All unit tests pass
-- [ ] All E2E tests pass
-- [ ] Test coverage > 80%
-- [ ] No TypeScript errors
-- [ ] No console warnings/errors
-- [ ] ESLint passes
-
-**UX**
-- [ ] Loading states present
-- [ ] Error states handled gracefully
-- [ ] Mobile responsive (test on iPhone, Android)
-- [ ] Color-coding consistent with design
-- [ ] Text readable (contrast check)
-
-**Documentation**
-- [ ] README updated
-- [ ] DEV.md updated
-- [ ] Code comments on complex functions
-- [ ] API schema documented
-
----
-
-## 🔮 Future Enhancements (v0.2.1+)
-
-These are **out of scope** for MVP but planned for future:
-
-1. **Real Market Data**
-   - Polygon.io API integration
-   - Live option chain fetching
-   - Real-time updates
-
-2. **Multi-Ticker Support**
-   - SPY, QQQ, IWM, etc.
-   - Ticker selector in widget
-   - Comparative analysis
-
-3. **AI Narratives**
-   - Claude-generated put thesis
-   - Actionable insights
-   - Risk callouts
-
-4. **Alerts & Notifications**
-   - Regime change alerts (Telegram)
-   - IV spike notifications
-   - Scheduled reports
-
-5. **Advanced Analytics**
-   - Options flow analysis (unusual activity)
-   - Multi-leg strategies (iron condors, butterflies)
-   - Historical backtesting (projected vs actual)
-
----
-
-## 📞 Questions?
-
-If anything is unclear:
-1. Check the [Design Doc](./design-option-price-projection.md) for technical details
-2. Check the [Task Breakdown](./tasks-option-price-projection.md) for implementation steps
-3. Check the [PRD](./prd-option-price-projection.md) for product context
-
-Still stuck? Reach out to the architect or PM.
-
----
-
-## 🎉 Success Metrics (Post-Launch)
-
-After deployment, track:
-
-| Metric | Target | How to Measure |
-|--------|--------|----------------|
-| Widget Engagement | > 50% daily users view | Analytics (click tracking) |
-| Report CTR | > 30% from widget | Widget clicks / widget views |
-| Load Time (P95) | < 500ms widget, < 2s report | Performance monitoring |
-| Error Rate | < 1% | API logs, Sentry |
-| User Feedback | Positive sentiment | User interviews, surveys |
-| Projection Accuracy | TBD (backtest after 30 days) | Compare projected vs actual SPY moves |
-
----
-
-**Ready to build!** 🚀
-
-Follow the [Task Breakdown](./tasks-option-price-projection.md) and ship this feature.
+**Status:** Ready for Engineer to begin implementation ✅

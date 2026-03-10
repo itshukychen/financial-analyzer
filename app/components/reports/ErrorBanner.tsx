@@ -13,6 +13,8 @@ export default function ErrorBanner({ error, onRetry, onDismiss }: ErrorBannerPr
   return (
     <div
       className="mx-3 my-2 p-3 rounded-lg border flex items-start gap-3"
+      role="alert"
+      aria-live="assertive"
       style={{
         background: 'rgba(239, 68, 68, 0.1)',
         borderColor: '#ef4444',

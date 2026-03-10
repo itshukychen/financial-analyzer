@@ -1,6 +1,7 @@
 // app/components/reports/ChatMessage.tsx
 'use client';
 
+import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage as ChatMessageType } from '../../../types/chat';
@@ -10,7 +11,7 @@ interface ChatMessageProps {
   isLatest: boolean;
 }
 
-export default function ChatMessage({ message, isLatest }: ChatMessageProps) {
+const ChatMessage = memo(function ChatMessage({ message, isLatest }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Format timestamp (HH:MM)
@@ -24,6 +25,8 @@ export default function ChatMessage({ message, isLatest }: ChatMessageProps) {
     <div
       ref={isLatest ? (el) => el?.scrollIntoView({ behavior: 'smooth' }) : undefined}
       className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}
+      role="article"
+      aria-label={`${isUser ? 'Your' : 'AI'} message at ${time}`}
     >
       <div
         className={`max-w-[80%] rounded-lg px-4 py-2.5 ${
@@ -60,4 +63,6 @@ export default function ChatMessage({ message, isLatest }: ChatMessageProps) {
       </div>
     </div>
   );
-}
+});
+
+export default ChatMessage;

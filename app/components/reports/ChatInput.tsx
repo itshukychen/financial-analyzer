@@ -54,6 +54,9 @@ export default function ChatInput({
             color: 'var(--text)'
           }}
           maxLength={maxLength}
+          aria-label="Chat message input"
+          aria-describedby="char-counter"
+          aria-invalid={isOverLimit}
         />
 
         {/* Send button */}
@@ -80,10 +83,13 @@ export default function ChatInput({
       {/* Character counter */}
       <div className="flex justify-end mt-1">
         <span
+          id="char-counter"
           className="text-xs"
           style={{ color: isOverLimit ? '#ef4444' : 'var(--text-muted)' }}
+          role="status"
+          aria-live="polite"
         >
-          {value.length} / {maxLength}
+          {value.length} / {maxLength} characters
         </span>
       </div>
     </div>

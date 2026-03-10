@@ -266,6 +266,14 @@ export interface OptionPrice {
   created_at: number;
 }
 
+export interface AIForecastRow {
+  id: number;
+  ticker: string;
+  date: string;
+  forecast_json: string;  // JSON-serialized AIOptionsForecast
+  created_at: number;     // Unix timestamp
+}
+
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
@@ -306,12 +314,17 @@ function migrate(db: Database.Database): void {
   const hasOptionPrices = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='option_prices'"
   ).get();
+  const hasAIForecasts = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts'"
+  ).get();
   
   // Migrate v1 → v2
   if (cols.includes('period')) {
     // v2 already or later
     if (hasOptionSnapshots) {
-      if (hasOptionPrices) return; // Already at v4
+      if (hasOptionPrices) {
+        if (hasAIForecasts) return; // Already at v5
+      }
     }
   } else {
     // v1 table exists but lacks period — rebuild
@@ -417,6 +430,23 @@ function migrate(db: Database.Database): void {
         ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
       CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
         ON option_prices(expiry_date);
+    `);
+  }
+  
+  // Create v5 ai_forecasts table if it doesn't exist
+  if (!hasAIForecasts) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_forecasts (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker        TEXT    NOT NULL,
+        date          TEXT    NOT NULL,
+        forecast_json TEXT    NOT NULL,
+        created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        
+        UNIQUE(ticker, date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
+        ON ai_forecasts(ticker, date DESC);
     `);
   }
 }

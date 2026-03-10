@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { POST } from '../route';
 import type { NextRequest } from 'next/server';
 
+// Type for vitest mocked functions
+type VitestMock = {
+  mockReturnValue: (value: unknown) => VitestMock;
+  mockResolvedValue: (value: unknown) => VitestMock;
+};
+
 // Set environment variables before mocking
 process.env.ANTHROPIC_API_KEY = 'sk-test-key-for-testing-123456789';
 
@@ -44,7 +50,7 @@ vi.mock('@/lib/ai/claude-prompt', () => ({
 }));
 
 describe('POST /api/options/ai-analysis', () => {
-  const mockRequest = (body: any): Partial<NextRequest> => ({
+  const mockRequest = (body: Record<string, unknown>): Partial<NextRequest> => ({
     json: async () => body,
   });
 
@@ -101,7 +107,7 @@ describe('POST /api/options/ai-analysis', () => {
         },
       };
 
-      (getAnalysisCache as any).mockReturnValue({
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue({
         analysis_json: JSON.stringify(mockCachedData),
         created_at: new Date(Date.now() - 300000).toISOString(),
       });
@@ -119,10 +125,10 @@ describe('POST /api/options/ai-analysis', () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection } = await import('@/lib/db');
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockResolvedValue('test response');
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockResolvedValue('test response');
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -142,11 +148,11 @@ describe('POST /api/options/ai-analysis', () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection, insertOrReplaceAnalysisCache } = await import('@/lib/db');
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockResolvedValue('test response');
-      (insertOrReplaceAnalysisCache as any).mockReturnValue(undefined);
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockResolvedValue('test response');
+      (insertOrReplaceAnalysisCache as unknown as VitestMock).mockReturnValue(undefined);
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -167,11 +173,11 @@ describe('POST /api/options/ai-analysis', () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection, insertOrReplaceAnalysisCache } = await import('@/lib/db');
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockResolvedValue('test response');
-      (insertOrReplaceAnalysisCache as any).mockReturnValue(undefined);
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockResolvedValue('test response');
+      (insertOrReplaceAnalysisCache as unknown as VitestMock).mockReturnValue(undefined);
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -187,7 +193,7 @@ describe('POST /api/options/ai-analysis', () => {
         expect.any(String)
       );
 
-      const callArgs = (insertOrReplaceAnalysisCache as any).mock.calls[0];
+      const callArgs = (insertOrReplaceAnalysisCache as unknown as VitestMock).mock.calls[0];
       expect(callArgs[2]).toContain('success');
     });
   });
@@ -198,10 +204,10 @@ describe('POST /api/options/ai-analysis', () => {
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
       const { buildClaudePrompt } = await import('@/lib/ai/claude-prompt');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockResolvedValue('test response');
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockResolvedValue('test response');
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -218,10 +224,10 @@ describe('POST /api/options/ai-analysis', () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection } = await import('@/lib/db');
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockRejectedValue(new Error('API Error'));
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockRejectedValue(new Error('API Error'));
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -241,8 +247,8 @@ describe('POST /api/options/ai-analysis', () => {
     it('should return 500 error when snapshot data is missing', async () => {
       const { getAnalysisCache, getOptionSnapshot } = await import('@/lib/db');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(null);
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(null);
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -260,9 +266,9 @@ describe('POST /api/options/ai-analysis', () => {
     it('should return 500 error when projection data is missing', async () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection } = await import('@/lib/db');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(null);
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(null);
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -281,10 +287,10 @@ describe('POST /api/options/ai-analysis', () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection } = await import('@/lib/db');
       const { callClaudeAPI } = await import('@/lib/ai/claude-client');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
-      (callClaudeAPI as any).mockRejectedValue(new Error('API timeout'));
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
+      (callClaudeAPI as unknown as VitestMock).mockRejectedValue(new Error('API timeout'));
 
       const request = mockRequest({
         ticker: 'SPWX',
@@ -305,9 +311,9 @@ describe('POST /api/options/ai-analysis', () => {
     it('should use current date when no date is provided', async () => {
       const { getAnalysisCache, getOptionSnapshot, getOptionProjection } = await import('@/lib/db');
 
-      (getAnalysisCache as any).mockReturnValue(null);
-      (getOptionSnapshot as any).mockReturnValue(mockSnapshotData);
-      (getOptionProjection as any).mockReturnValue(mockProjectionData);
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue(null);
+      (getOptionSnapshot as unknown as VitestMock).mockReturnValue(mockSnapshotData);
+      (getOptionProjection as unknown as VitestMock).mockReturnValue(mockProjectionData);
 
       const request = mockRequest({ ticker: 'SPWX' }) as NextRequest;
 
@@ -320,7 +326,7 @@ describe('POST /api/options/ai-analysis', () => {
     it('should parse request body correctly', async () => {
       const { getAnalysisCache } = await import('@/lib/db');
 
-      (getAnalysisCache as any).mockReturnValue({
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue({
         analysis_json: JSON.stringify({
           success: true,
           sections: [],
@@ -369,7 +375,7 @@ describe('POST /api/options/ai-analysis', () => {
         },
       };
 
-      (getAnalysisCache as any).mockReturnValue({
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue({
         analysis_json: JSON.stringify(cachedData),
         created_at: new Date(Date.now() - 300000).toISOString(),
       });
@@ -402,7 +408,7 @@ describe('POST /api/options/ai-analysis', () => {
         },
       };
 
-      (getAnalysisCache as any).mockReturnValue({
+      (getAnalysisCache as unknown as VitestMock).mockReturnValue({
         analysis_json: JSON.stringify(cachedData),
         created_at: new Date(Date.now() - 300000).toISOString(),
       });

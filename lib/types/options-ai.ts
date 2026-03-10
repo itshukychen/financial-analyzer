@@ -30,7 +30,7 @@ export interface Highlight {
 
 export interface Chart {
   type: 'line' | 'bar' | 'histogram';
-  data: any;
+  data: Record<string, unknown>;
 }
 
 export interface NextDayProjection {

@@ -274,6 +274,15 @@ export interface AIForecastRow {
   created_at: number;     // Unix timestamp
 }
 
+export interface AnalysisCacheRow {
+  id: number;
+  date: string;
+  ticker: string;
+  analysis_json: string;
+  created_at: string;
+  expires_at: string;
+}
+
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
@@ -298,10 +307,10 @@ export interface DbInstance {
   getAIForecast(date: string, ticker: string): object | null;
   
   insertOrReplaceAnalysisCache(ticker: string, date: string, analysisJson: string, expiresAt: string): void;
-  getAnalysisCache(ticker: string, date: string, allowStale?: boolean): any;
+  getAnalysisCache(ticker: string, date: string, allowStale?: boolean): AnalysisCacheRow | null;
   
   insertOrReplaceAIForecast(date: string, ticker: string, forecastJson: object, expiresInHours?: number): { success: boolean; cached: boolean };
-  getAIForecast(date: string, ticker: string): any;
+  getAIForecast(date: string, ticker: string): { forecast_json: string; created_at: string } | null;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -675,15 +684,6 @@ export function createDb(dbPath: string): DbInstance {
 
   // ─── AI Analysis Cache CRUD ────────────────────────────────────────────────
 
-  interface AnalysisCacheRow {
-    id: number;
-    date: string;
-    ticker: string;
-    analysis_json: string;
-    created_at: string;
-    expires_at: string;
-  }
-
   function insertOrReplaceAnalysisCache(
     ticker: string,
     date: string,
@@ -735,7 +735,7 @@ export function createDb(dbPath: string): DbInstance {
     }
   }
 
-  function getAIForecast(date: string, ticker: string): any {
+  function getAIForecast(date: string, ticker: string): { forecast_json: string; created_at: string } | null {
     try {
       const cache = getAnalysisCache(ticker, date, false);
       if (!cache) return null;

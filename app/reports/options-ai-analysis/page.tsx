@@ -53,7 +53,14 @@ export default async function OptionsAIAnalysisPage() {
       <PageHeader 
         title="Options AI Analysis" 
         subtitle="AI-Powered Daily Insights" 
-        badge={data.metadata.date} 
+        right={
+          <span className="px-3 py-1 text-sm rounded-md" style={{ 
+            backgroundColor: 'var(--bg-secondary)', 
+            color: 'var(--text-muted)' 
+          }}>
+            {data.metadata.date}
+          </span>
+        }
       />
 
       <div className="max-w-5xl mx-auto space-y-6 p-6">

@@ -66,14 +66,6 @@ export async function generateAIAnalysis(
   context: OptionAnalysisContext,
   useCache = true
 ): Promise<AIOptionsForecast> {
-  // Check cache first
-  if (useCache) {
-    const cached = getAIForecast(context.ticker, context.date);
-    if (cached && isCacheFresh(cached.created_at)) {
-      return JSON.parse(cached.forecast_json) as AIOptionsForecast;
-    }
-  }
-
   // Build user prompt
   const userPrompt = buildPrompt(context);
 

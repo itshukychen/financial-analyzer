@@ -46,7 +46,7 @@ function validateParams(params: Partial<OptionsOverlayParams>): {
     return { valid: false, error: 'Invalid or missing ticker' };
   }
 
-  if (params.strike === undefined || params.strike <= 0 || params.strike > 10000) {
+  if (params.strike === undefined || Number.isNaN(params.strike) || params.strike <= 0 || params.strike > 10000) {
     return { valid: false, error: 'Invalid strike price' };
   }
 

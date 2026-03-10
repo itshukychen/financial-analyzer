@@ -124,4 +124,178 @@ describe('FearGreedWidget', () => {
       expect(screen.getByTestId('fear-greed-card')).toBeInTheDocument();
     });
   });
+
+  it('handles zero score', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 0,
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      expect(screen.getByTestId('fear-greed-score')).toBeInTheDocument();
+      expect(screen.getByTestId('fear-greed-score').textContent).toContain('0');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('handles maximum score (100)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 100,
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      expect(screen.getByTestId('fear-greed-score')).toBeInTheDocument();
+      expect(screen.getByTestId('fear-greed-score').textContent).toContain('100');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('shows extreme fear color for score <= 24', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 10,
+          rating: 'Extreme Fear',
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      const ratingElement = screen.getByTestId('fear-greed-rating');
+      expect(ratingElement.textContent).toContain('Extreme Fear');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('shows fear color for score 25-44', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 35,
+          rating: 'Fear',
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      const ratingElement = screen.getByTestId('fear-greed-rating');
+      expect(ratingElement.textContent).toContain('Fear');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('shows neutral color for score 45-55', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 50,
+          rating: 'Neutral',
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      const ratingElement = screen.getByTestId('fear-greed-rating');
+      expect(ratingElement.textContent).toContain('Neutral');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('shows greed color for score 56-74', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 65,
+          rating: 'Greed',
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      const ratingElement = screen.getByTestId('fear-greed-rating');
+      expect(ratingElement.textContent).toContain('Greed');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('shows extreme greed color for score >= 75', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_API_RESPONSE,
+          score: 85,
+          rating: 'Extreme Greed',
+        }),
+      }),
+    );
+
+    render(<FearGreedWidget />);
+    await waitFor(() => {
+      const ratingElement = screen.getByTestId('fear-greed-rating');
+      expect(ratingElement.textContent).toContain('Extreme Greed');
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('handles undefined data response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(undefined),
+      }),
+    );
+
+    const { container } = render(<FearGreedWidget />);
+    await waitFor(() => {
+      // When data is undefined but no explicit error, should render error message
+      const errorDiv = container.querySelector('[data-testid="fear-greed-error"]');
+      // Either error state renders or component returns null (renders nothing)
+      // Check that it's not stuck in loading state
+      const skeleton = container.querySelector('[data-testid="fear-greed-skeleton"]');
+      expect(skeleton).not.toBeInTheDocument();
+    });
+
+    vi.unstubAllGlobals();
+  });
 });

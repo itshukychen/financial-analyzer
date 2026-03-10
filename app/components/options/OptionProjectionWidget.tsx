@@ -49,6 +49,7 @@ export default function OptionProjectionWidget() {
       <div
         className="flex flex-col gap-4 rounded-lg p-6 border animate-pulse"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        data-testid="option-projection-skeleton"
       >
         <div className="h-6 w-40 rounded bg-neutral-300 dark:bg-neutral-700" />
         <div className="space-y-3">
@@ -64,6 +65,7 @@ export default function OptionProjectionWidget() {
       <div
         className="flex flex-col gap-4 rounded-lg p-6 border"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        data-testid="option-projection-error"
       >
         <p style={{ color: 'var(--loss)' }}>Unable to load option data</p>
         {error && <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{error}</p>}
@@ -89,6 +91,7 @@ export default function OptionProjectionWidget() {
     <div
       className="flex flex-col gap-4 rounded-lg p-6 border"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      data-testid="option-projection-card"
     >
       <header className="flex justify-between items-start">
         <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>

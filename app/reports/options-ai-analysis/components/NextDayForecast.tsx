@@ -1,7 +1,7 @@
 'use client';
 
-import { Card } from '@/app/components/ui/Card';
-import { DataCard } from '@/app/components/ui/DataCard';
+import { Card } from '@/components/ui/Card';
+import { DataCard } from '@/components/ui/DataCard';
 import type { NextDayProjection } from '@/lib/types/options-ai';
 
 interface NextDayForecastProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Card } from '@/app/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { HighlightsGrid } from './HighlightsGrid';
 import type { Section } from '@/lib/types/options-ai';
 

@@ -1,1540 +1,901 @@
-# Implementation Tasks: AI-Powered Options Forecast
+# Implementation Tasks: Options AI Analysis Page
 
-**Feature:** AI-Powered Options Price Forecast Analysis  
-**Sprint:** 8 days  
-**Assignee:** Engineer (to be assigned)  
-**PRD:** [prd-ai-options-forecast.md](./prd-ai-options-forecast.md)  
-**Design:** [DESIGN.md](./DESIGN.md)  
-
----
-
-## Overview
-
-This task breakdown provides a **step-by-step implementation guide** for the AI Options Forecast feature.
-
-**Estimated Total Time:** 6-8 working days  
-**Complexity:** Medium (Claude API integration + frontend work)  
-**Dependencies:** Existing v0.1.0 analytics library, option snapshots/projections in DB  
+**Feature:** AI-Based Options Analysis Page  
+**Assigned To:** Engineer Agent  
+**Estimated Time:** 6-8 hours  
+**Priority:** High
 
 ---
 
-## Phase 1: Database & Core AI Library (Days 1-2)
+## Task Breakdown
 
-### Task 1.1: Database Schema Migration
+### Phase 1: Database & API Foundation (2-3 hours)
 
-**Estimated Time:** 1 hour  
-**Files:**
-- `lib/migrations/003_ai_forecasts.sql` (NEW)
-- `lib/db.ts` (ENHANCED)
+#### Task 1.1: Create Database Migration
+**File:** `migrations/YYYY-MM-DD-create-option-analysis-cache.sql`
 
-**Steps:**
+```sql
+-- Create cache table for AI analysis results
+CREATE TABLE IF NOT EXISTS option_analysis_cache (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker TEXT NOT NULL,
+  date TEXT NOT NULL,
+  analysis_json TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  
+  UNIQUE(ticker, date)
+);
 
-1. **Create migration file:**
-   ```sql
-   -- lib/migrations/003_ai_forecasts.sql
-   
-   CREATE TABLE IF NOT EXISTS ai_forecasts (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     ticker TEXT NOT NULL,
-     date TEXT NOT NULL,
-     snapshot_date TEXT NOT NULL,
-     
-     -- Summary
-     summary TEXT,
-     outlook TEXT CHECK(outlook IN ('bullish','neutral','bearish')),
-     
-     -- Price Targets
-     pt_conservative REAL,
-     pt_base REAL,
-     pt_aggressive REAL,
-     pt_confidence REAL CHECK(pt_confidence >= 0 AND pt_confidence <= 1),
-     
-     -- Regime Analysis
-     regime_classification TEXT CHECK(regime_classification IN ('elevated','normal','depressed')),
-     regime_justification TEXT,
-     regime_recommendation TEXT,
-     
-     -- Trading Levels
-     key_support REAL,
-     key_resistance REAL,
-     profit_targets TEXT,
-     stop_loss REAL,
-     
-     -- Confidence
-     overall_confidence REAL CHECK(overall_confidence >= 0 AND overall_confidence <= 1),
-     confidence_reasoning TEXT,
-     
-     -- Metadata
-     created_at TEXT DEFAULT (datetime('now')),
-     ai_model TEXT DEFAULT 'claude-sonnet-4.5',
-     
-     UNIQUE(ticker, date, snapshot_date)
-   );
-   
-   CREATE INDEX idx_ai_forecasts_ticker_date ON ai_forecasts(ticker, date);
-   CREATE INDEX idx_ai_forecasts_created_at ON ai_forecasts(created_at);
-   ```
+-- Index for fast lookup
+CREATE INDEX idx_cache_lookup ON option_analysis_cache(ticker, date, expires_at);
 
-2. **Add migration runner to `lib/db.ts`:**
-   ```typescript
-   export function runMigrations() {
-     const migrations = [
-       fs.readFileSync('lib/migrations/001_init.sql', 'utf8'),
-       fs.readFileSync('lib/migrations/002_options.sql', 'utf8'),
-       fs.readFileSync('lib/migrations/003_ai_forecasts.sql', 'utf8'),
-     ];
-     
-     migrations.forEach((sql) => db.exec(sql));
-   }
-   ```
+-- Index for cleanup queries
+CREATE INDEX idx_cache_expiry ON option_analysis_cache(expires_at);
+```
 
-3. **Add DB helper functions:**
-   ```typescript
-   export function getAIForecast(ticker: string, date: string) {
-     return db.prepare(`
-       SELECT * FROM ai_forecasts
-       WHERE ticker = ? AND date = ?
-       ORDER BY created_at DESC
-       LIMIT 1
-     `).get(ticker, date);
-   }
-   
-   export function saveAIForecast(ticker: string, date: string, analysis: AIOptionsForecast) {
-     return db.prepare(`
-       INSERT OR REPLACE INTO ai_forecasts (
-         ticker, date, snapshot_date,
-         summary, outlook,
-         pt_conservative, pt_base, pt_aggressive, pt_confidence,
-         regime_classification, regime_justification, regime_recommendation,
-         key_support, key_resistance, profit_targets, stop_loss,
-         overall_confidence, confidence_reasoning
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     `).run(
-       ticker, date, analysis.snapshotDate,
-       analysis.summary, analysis.outlook,
-       analysis.priceTargets.conservative,
-       analysis.priceTargets.base,
-       analysis.priceTargets.aggressive,
-       analysis.priceTargets.confidence,
-       analysis.regimeAnalysis.classification,
-       analysis.regimeAnalysis.justification,
-       analysis.regimeAnalysis.recommendation,
-       analysis.tradingLevels.keySupport,
-       analysis.tradingLevels.keyResistance,
-       JSON.stringify(analysis.tradingLevels.profitTargets),
-       analysis.tradingLevels.stopLoss,
-       analysis.confidence.overall,
-       analysis.confidence.reasoning
-     );
-   }
-   ```
-
-4. **Test migration:**
-   ```bash
-   npm run db:migrate
-   sqlite3 data/dev.db "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts';"
-   ```
-
-**Acceptance Criteria:**
-- ✅ `ai_forecasts` table created successfully
-- ✅ Indexes created
-- ✅ `getAIForecast()` and `saveAIForecast()` functions work
-- ✅ Migration runs without errors on clean database
+**Acceptance:**
+- [ ] Migration file created
+- [ ] Run migration: `npm run db:migrate` (or equivalent)
+- [ ] Verify table exists: `sqlite3 database.db ".schema option_analysis_cache"`
 
 ---
 
-### Task 1.2: Type Definitions
+#### Task 1.2: Create TypeScript Types
+**File:** `app/types/options-ai.ts`
 
-**Estimated Time:** 30 minutes  
-**Files:**
-- `lib/types/aiOptionsForecast.ts` (NEW)
+```typescript
+export interface AIAnalysisRequest {
+  ticker: string;
+  date?: string;
+  expiry?: string;
+  regenerate?: boolean;
+}
 
-**Steps:**
+export interface AIAnalysisResponse {
+  success: boolean;
+  sections: Section[];
+  nextDayProjection: NextDayProjection;
+  metadata: Metadata;
+  error?: string;
+}
 
-1. **Create type definitions:**
-   ```typescript
-   // lib/types/aiOptionsForecast.ts
-   
-   export interface OptionAnalysisContext {
-     ticker: string;
-     date: string;
-     snapshotMetrics: {
-       iv: number;
-       ivPercentile: number;
-       delta: number[];
-       gamma: number[];
-       vega: number[];
-       theta: number[];
-       skew: number;
-       regimeType: 'elevated' | 'normal' | 'depressed';
-     };
-     projectionData: {
-       mean: number;
-       std: number;
-       probDistribution: Record<string, number>;
-       keyLevels: { price: number; probability: number }[];
-     };
-   }
-   
-   export interface AIOptionsForecast {
-     summary: string;
-     outlook: 'bullish' | 'neutral' | 'bearish';
-     priceTargets: {
-       conservative: number;
-       base: number;
-       aggressive: number;
-       confidence: number;
-     };
-     regimeAnalysis: {
-       classification: 'elevated' | 'normal' | 'depressed';
-       justification: string;
-       recommendation: string;
-     };
-     tradingLevels: {
-       keySupport: number;
-       keyResistance: number;
-       profitTargets: number[];
-       stopLoss: number;
-     };
-     confidence: {
-       overall: number;
-       reasoning: string;
-     };
-     snapshotDate: string;
-   }
-   
-   export interface AIForecastResponse {
-     success: boolean;
-     analysis?: AIOptionsForecast;
-     cached: boolean;
-     cacheAge?: number;
-     nextUpdate?: string;
-     error?: string;
-     warning?: string;
-   }
-   ```
+export interface Section {
+  id: string;
+  title: string;
+  icon: string;
+  prose: string;
+  highlights?: Highlight[];
+  chart?: Chart;
+}
 
-2. **Export from `lib/types/index.ts`:**
-   ```typescript
-   export * from './aiOptionsForecast';
-   ```
+export interface Highlight {
+  label: string;
+  value: string;
+  color?: 'gain' | 'loss' | 'neutral';
+}
 
-**Acceptance Criteria:**
-- ✅ TypeScript compiles without errors
-- ✅ Types imported successfully in other files
+export interface Chart {
+  type: 'line' | 'bar' | 'histogram';
+  data: any;
+}
+
+export interface NextDayProjection {
+  targetLow: number;
+  targetHigh: number;
+  mode: number;
+  confidence: 'high' | 'medium' | 'low';
+  moveProb: number;
+  description: string;
+}
+
+export interface Metadata {
+  ticker: string;
+  date: string;
+  generatedAt: string;
+  isCached: boolean;
+  cacheAge: number;
+  nextUpdate: string;
+}
+
+export interface Snapshot {
+  ticker: string;
+  date: string;
+  netDelta: number;
+  atmGamma: number;
+  vega: number;
+  theta: number;
+  iv30d: number;
+  ivRank: number;
+  hv20d: number;
+  move1w: number;
+  regime: string;
+  skewRatio: number;
+  putIV: number;
+  callIV: number;
+}
+
+export interface Projection {
+  ticker: string;
+  date: string;
+  mode: number;
+  rangeLow: number;
+  rangeHigh: number;
+}
+```
+
+**Acceptance:**
+- [ ] File created
+- [ ] No TypeScript errors
+- [ ] Types exported correctly
 
 ---
 
-### Task 1.3: Claude API Integration
+#### Task 1.3: Create Claude Prompt Builder
+**File:** `app/lib/ai/claude-prompt.ts`
 
-**Estimated Time:** 3 hours  
-**Files:**
-- `lib/aiOptionsForecast.ts` (NEW)
-- `.env.local` (add `ANTHROPIC_API_KEY`)
+```typescript
+import type { Snapshot, Projection } from '@/types/options-ai';
 
-**Steps:**
+export function buildClaudePrompt(snapshot: Snapshot, projection: Projection): string {
+  return `
+You are an expert options analyst. Analyze the following option market data and provide structured insights.
 
-1. **Install Anthropic SDK:**
-   ```bash
-   npm install @anthropic-ai/sdk
-   ```
+### Current Market State (${snapshot.date})
+Ticker: ${snapshot.ticker}
 
-2. **Create AI forecast library:**
-   ```typescript
-   // lib/aiOptionsForecast.ts
-   
-   import Anthropic from '@anthropic-ai/sdk';
-   import type { OptionAnalysisContext, AIOptionsForecast } from './types/aiOptionsForecast';
-   import { getAIForecast, saveAIForecast } from './db';
-   
-   const client = new Anthropic({
-     apiKey: process.env.ANTHROPIC_API_KEY,
-   });
-   
-   const SYSTEM_PROMPT = `You are an expert volatility analyst specializing in equity options.
+**Greeks Aggregate:**
+- Net Delta: ${snapshot.netDelta.toFixed(4)} (${snapshot.netDelta > 0 ? 'bullish' : 'bearish'})
+- ATM Gamma: ${snapshot.atmGamma.toFixed(4)}
+- Vega (per 1% IV): ${snapshot.vega.toFixed(0)} pts
+- Theta (daily decay): ${snapshot.theta.toFixed(2)}
 
-Your task: analyze options market data and generate actionable trading insights.
+**Volatility Metrics:**
+- IV (30d ATM): ${snapshot.iv30d.toFixed(1)}%
+- IV Rank: ${snapshot.ivRank}th percentile
+- Historical Vol (20d): ${snapshot.hv20d.toFixed(1)}%
+- Implied Move (1W): ±${snapshot.move1w.toFixed(1)}%
+- Regime: ${snapshot.regime}
 
-**Input Data:**
-- Current implied volatility (IV) and historical percentile
-- Option Greeks across strikes (delta, gamma, vega, theta)
-- Volatility skew (25-75 delta spread)
-- Current regime classification (elevated/normal/depressed)
-- Probability distribution for the next 4 weeks
-- Historical baseline metrics (20-day SMA IV, percentile ranks)
+**Skew Profile:**
+- Skew Ratio: ${snapshot.skewRatio.toFixed(2)} (${snapshot.skewRatio > 1 ? 'put-heavy' : 'call-heavy'})
+- Put IV (OTM 25d): ${snapshot.putIV.toFixed(1)}%
+- Call IV (OTM 25d): ${snapshot.callIV.toFixed(1)}%
 
-**Your Analysis Should:**
-1. Assess the current IV environment (elevated/normal/depressed vs history)
-2. Identify market positioning from skew and Greeks
-3. Extract probability-weighted price targets (25th, 50th, 75th percentile)
-4. Recommend key trading levels (support, resistance, profit targets, stop loss)
-5. Provide a confidence score based on data quality and regime stability
+**Probability Distribution (30d horizon):**
+- Mode: $${projection.mode.toFixed(2)}
+- 2SD Range: $${projection.rangeLow.toFixed(2)}–$${projection.rangeHigh.toFixed(2)}
 
-**Output Format:**
-Respond ONLY with valid JSON (no markdown, no explanations outside JSON):
+### Task
+Generate a structured analysis with 5 sections. Format as valid JSON:
 
 {
-  "summary": "<2-3 sentence executive summary>",
-  "outlook": "<bullish|neutral|bearish>",
-  "priceTargets": {
-    "conservative": <number>,
-    "base": <number>,
-    "aggressive": <number>,
-    "confidence": <0-1>
-  },
-  "regimeAnalysis": {
-    "classification": "<elevated|normal|depressed>",
-    "justification": "<why this classification?>",
-    "recommendation": "<short|long|neutral> volatility"
-  },
-  "tradingLevels": {
-    "keySupport": <number>,
-    "keyResistance": <number>,
-    "profitTargets": [<number>, <number>, <number>],
-    "stopLoss": <number>
-  },
-  "confidence": {
-    "overall": <0-1>,
-    "reasoning": "<brief explanation of confidence level>"
+  "sections": [
+    {
+      "id": "current-move",
+      "title": "Current Move Driver",
+      "icon": "📊",
+      "prose": "2-3 sentences explaining why IV is at current level and what's driving skew",
+      "highlights": [
+        {"label": "IV Change", "value": "+X%", "color": "loss|gain|neutral"},
+        {"label": "IV Rank", "value": "Xth %ile", "color": "neutral"},
+        {"label": "Gamma ATM", "value": "X.XXXX", "color": "loss|gain"},
+        {"label": "Skew", "value": "Put/Call Heavy", "color": "neutral"}
+      ]
+    },
+    {
+      "id": "iv-skew",
+      "title": "IV & Skew Interpretation",
+      "icon": "📈",
+      "prose": "2-3 sentences on whether IV is expensive vs HV, what skew indicates",
+      "highlights": [
+        {"label": "IV/HV Spread", "value": "+X%", "color": "loss|gain"},
+        {"label": "Skew Ratio", "value": "X.XX", "color": "neutral"},
+        {"label": "Put IV", "value": "X%", "color": "neutral"},
+        {"label": "Call IV", "value": "X%", "color": "neutral"}
+      ]
+    },
+    {
+      "id": "greeks",
+      "title": "Greeks Analysis",
+      "icon": "🧮",
+      "prose": "2-3 sentences on delta positioning, gamma risk, theta decay, vega sensitivity",
+      "highlights": [
+        {"label": "Net Delta", "value": "+/-X.XX", "color": "gain|loss"},
+        {"label": "Theta Daily", "value": "-X.XX", "color": "loss"},
+        {"label": "Vega per 1%", "value": "X pts", "color": "neutral"},
+        {"label": "Gamma ATM", "value": "X.XXXX", "color": "loss|gain"}
+      ]
+    },
+    {
+      "id": "regime",
+      "title": "Volatility Regime",
+      "icon": "⚡",
+      "prose": "2-3 sentences on current regime, transition probability, expected duration",
+      "highlights": [
+        {"label": "Current Regime", "value": "Low|Normal|High", "color": "gain|neutral|loss"},
+        {"label": "HV 20d", "value": "X%", "color": "neutral"},
+        {"label": "Transition Prob", "value": "X%", "color": "neutral"},
+        {"label": "Duration", "value": "X-Y days", "color": "neutral"}
+      ]
+    },
+    {
+      "id": "next-day",
+      "title": "Next Trading Day Forecast",
+      "icon": "🎯",
+      "prose": "3-4 sentences on expected move, key levels, confidence rationale"
+    }
+  ],
+  "nextDayProjection": {
+    "targetLow": ${(projection.rangeLow * 0.98).toFixed(2)},
+    "targetHigh": ${(projection.rangeHigh * 1.02).toFixed(2)},
+    "mode": ${projection.mode.toFixed(2)},
+    "confidence": "high|medium|low",
+    "moveProb": 0.65,
+    "description": "Brief forecast summary (1-2 sentences)"
   }
 }
 
-**Rules:**
-- All price targets must be within ±20% of current price
-- Confidence scores must be between 0 and 1
-- Be concise and data-driven; avoid speculation
-- If uncertain, reduce confidence score and explain why
-- Reference specific metrics in your justifications`;
-   
-   export async function generateAIAnalysis(
-     context: OptionAnalysisContext,
-     useCache = true
-   ): Promise<AIOptionsForecast> {
-     // Check cache first
-     if (useCache) {
-       const cached = getAIForecast(context.ticker, context.date);
-       if (cached && isCacheFresh(cached.created_at)) {
-         return parseForecastFromDB(cached);
-       }
-     }
-     
-     // Build user prompt
-     const userPrompt = buildPrompt(context);
-     
-     try {
-       // Call Claude API
-       const response = await client.messages.create({
-         model: 'claude-sonnet-4-5',
-         max_tokens: 2048,
-         system: SYSTEM_PROMPT,
-         messages: [{
-           role: 'user',
-           content: userPrompt,
-         }],
-       });
-       
-       // Parse response
-       const content = response.content[0].text;
-       const analysis = parseClaudeResponse(content, context);
-       
-       // Validate
-       validateAnalysis(analysis, context);
-       
-       // Save to DB
-       saveAIForecast(context.ticker, context.date, analysis);
-       
-       return analysis;
-       
-     } catch (error) {
-       console.error('Claude API error:', error);
-       
-       // Fallback to cached forecast
-       const cached = getAIForecast(context.ticker, context.date);
-       if (cached) {
-         console.warn('Using stale cached forecast due to API error');
-         return parseForecastFromDB(cached);
-       }
-       
-       throw new Error('AI forecast generation failed and no cache available');
-     }
-   }
-   
-   function buildPrompt(context: OptionAnalysisContext): string {
-     const { snapshotMetrics, projectionData } = context;
-     
-     return `Analyze the following options market data for ${context.ticker}:
+Return ONLY valid JSON. No markdown, no code blocks.
+  `.trim();
+}
+```
 
-**Current Metrics:**
-- Current IV: ${snapshotMetrics.iv.toFixed(1)}%
-- IV Percentile (20d): ${snapshotMetrics.ivPercentile.toFixed(0)}%
-- Regime: ${snapshotMetrics.regimeType}
-- Skew (25-75 delta): ${snapshotMetrics.skew.toFixed(1)} points
-
-**Probability Distribution (4 weeks):**
-- Mean: $${projectionData.mean.toFixed(2)}
-- Std Dev: $${projectionData.std.toFixed(2)}
-- Key Levels: ${projectionData.keyLevels.map(l => `$${l.price.toFixed(2)} (${(l.probability * 100).toFixed(0)}%)`).join(', ')}
-
-Generate trading analysis following the output format.`;
-   }
-   
-   function parseClaudeResponse(content: string, context: OptionAnalysisContext): AIOptionsForecast {
-     // Extract JSON from response (handle markdown code blocks)
-     const jsonMatch = content.match(/```json\n([\s\S]+?)\n```/) || content.match(/(\{[\s\S]+\})/);
-     if (!jsonMatch) {
-       throw new Error('No valid JSON found in Claude response');
-     }
-     
-     const analysis = JSON.parse(jsonMatch[1]);
-     analysis.snapshotDate = context.date;
-     
-     return analysis;
-   }
-   
-   function validateAnalysis(analysis: AIOptionsForecast, context: OptionAnalysisContext) {
-     const currentPrice = context.projectionData.mean;
-     const maxDeviation = currentPrice * 0.2; // ±20%
-     
-     // Validate price targets
-     if (Math.abs(analysis.priceTargets.base - currentPrice) > maxDeviation) {
-       throw new Error(`Base target $${analysis.priceTargets.base} too far from current $${currentPrice}`);
-     }
-     
-     // Validate confidence scores
-     if (analysis.priceTargets.confidence < 0 || analysis.priceTargets.confidence > 1) {
-       throw new Error(`Invalid price target confidence: ${analysis.priceTargets.confidence}`);
-     }
-     
-     if (analysis.confidence.overall < 0 || analysis.confidence.overall > 1) {
-       throw new Error(`Invalid overall confidence: ${analysis.confidence.overall}`);
-     }
-   }
-   
-   function isCacheFresh(createdAt: string): boolean {
-     const cacheAge = Date.now() - new Date(createdAt).getTime();
-     const fourHours = 4 * 60 * 60 * 1000;
-     return cacheAge < fourHours;
-   }
-   
-   function parseForecastFromDB(row: any): AIOptionsForecast {
-     return {
-       summary: row.summary,
-       outlook: row.outlook,
-       priceTargets: {
-         conservative: row.pt_conservative,
-         base: row.pt_base,
-         aggressive: row.pt_aggressive,
-         confidence: row.pt_confidence,
-       },
-       regimeAnalysis: {
-         classification: row.regime_classification,
-         justification: row.regime_justification,
-         recommendation: row.regime_recommendation,
-       },
-       tradingLevels: {
-         keySupport: row.key_support,
-         keyResistance: row.key_resistance,
-         profitTargets: JSON.parse(row.profit_targets),
-         stopLoss: row.stop_loss,
-       },
-       confidence: {
-         overall: row.overall_confidence,
-         reasoning: row.confidence_reasoning,
-       },
-       snapshotDate: row.snapshot_date,
-     };
-   }
-   ```
-
-3. **Add API key to `.env.local`:**
-   ```bash
-   ANTHROPIC_API_KEY=sk-ant-your-key-here
-   ```
-
-4. **Test with sample data:**
-   ```typescript
-   // __tests__/lib/aiOptionsForecast.test.ts
-   
-   import { generateAIAnalysis } from '../../lib/aiOptionsForecast';
-   
-   describe('generateAIAnalysis', () => {
-     it('should generate valid forecast', async () => {
-       const context = {
-         ticker: 'SPWX',
-         date: '2026-03-09',
-         snapshotMetrics: {
-           iv: 45,
-           ivPercentile: 78,
-           delta: [0.25, 0.50, 0.75],
-           gamma: [0.02, 0.03, 0.02],
-           vega: [0.10, 0.12, 0.10],
-           theta: [-0.06, -0.08, -0.06],
-           skew: 8,
-           regimeType: 'elevated' as const,
-         },
-         projectionData: {
-           mean: 205,
-           std: 10,
-           probDistribution: {},
-           keyLevels: [
-             { price: 198, probability: 0.25 },
-             { price: 205, probability: 0.50 },
-             { price: 212, probability: 0.75 },
-           ],
-         },
-       };
-       
-       const result = await generateAIAnalysis(context);
-       
-       expect(result.summary).toBeTruthy();
-       expect(result.priceTargets.base).toBeGreaterThan(0);
-       expect(result.confidence.overall).toBeGreaterThanOrEqual(0);
-       expect(result.confidence.overall).toBeLessThanOrEqual(1);
-     }, 15000);
-   });
-   ```
-
-**Acceptance Criteria:**
-- ✅ Claude API returns valid JSON
-- ✅ Response parsed successfully
-- ✅ Validation catches invalid price targets
-- ✅ Cache retrieval works
-- ✅ Test passes
+**Acceptance:**
+- [ ] Function builds prompt correctly
+- [ ] All data points from snapshot/projection included
+- [ ] Prompt requests valid JSON structure
 
 ---
 
-## Phase 2: API Endpoint (Day 2)
+#### Task 1.4: Create Claude API Client
+**File:** `app/lib/ai/claude-client.ts`
 
-### Task 2.1: Create API Route
+```typescript
+import type { AIAnalysisResponse } from '@/types/options-ai';
 
-**Estimated Time:** 2 hours  
+export async function callClaudeAPI(prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Claude API error: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  } catch (error) {
+    console.error('[Claude API] Call failed:', error);
+    throw error;
+  }
+}
+
+export function parseClaudeResponse(response: string): Omit<AIAnalysisResponse, 'success' | 'metadata'> {
+  try {
+    // Strip markdown code blocks if present
+    const cleaned = response.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    // Validate structure
+    if (!parsed.sections || !Array.isArray(parsed.sections)) {
+      throw new Error('Invalid response: missing sections array');
+    }
+    if (!parsed.nextDayProjection) {
+      throw new Error('Invalid response: missing nextDayProjection');
+    }
+
+    return {
+      sections: parsed.sections,
+      nextDayProjection: parsed.nextDayProjection,
+    };
+  } catch (error) {
+    console.error('[Claude API] Failed to parse response:', error);
+    throw new Error('Claude returned invalid JSON');
+  }
+}
+```
+
+**Acceptance:**
+- [ ] Claude API call works
+- [ ] Response parsing extracts sections + projection
+- [ ] Error handling logs failures
+- [ ] Environment variable checked
+
+---
+
+#### Task 1.5: Create API Route
+**File:** `app/api/options/ai-analysis/route.ts`
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { getDatabase } from '@/lib/db';
+import { callClaudeAPI, parseClaudeResponse } from '@/lib/ai/claude-client';
+import { buildClaudePrompt } from '@/lib/ai/claude-prompt';
+import type { AIAnalysisRequest, AIAnalysisResponse } from '@/types/options-ai';
+
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
+  try {
+    const body: AIAnalysisRequest = await request.json();
+    const { ticker, date, regenerate } = body;
+
+    // Default to today if no date provided
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    // Check cache (unless regenerate=true)
+    if (!regenerate) {
+      const cached = await checkCache(ticker, targetDate);
+      if (cached) {
+        console.log('[AI Analysis] Cache HIT', { ticker, date: targetDate, age: cached.cacheAge });
+        return NextResponse.json(cached);
+      }
+    }
+
+    console.log('[AI Analysis] Cache MISS - generating', { ticker, date: targetDate });
+
+    // Fetch data
+    const snapshot = await getLatestSnapshot(ticker, targetDate);
+    const projection = await getLatestProjection(ticker, targetDate);
+
+    if (!snapshot || !projection) {
+      throw new Error('Missing snapshot or projection data');
+    }
+
+    // Generate analysis with Claude
+    const prompt = buildClaudePrompt(snapshot, projection);
+    const claudeStart = Date.now();
+    const claudeResponse = await callClaudeAPI(prompt);
+    const claudeLatency = Date.now() - claudeStart;
+
+    const parsed = parseClaudeResponse(claudeResponse);
+
+    // Build response
+    const analysis: AIAnalysisResponse = {
+      success: true,
+      ...parsed,
+      metadata: {
+        ticker,
+        date: targetDate,
+        generatedAt: new Date().toISOString(),
+        isCached: false,
+        cacheAge: 0,
+        nextUpdate: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      },
+    };
+
+    // Store in cache
+    await storeInCache(ticker, targetDate, analysis);
+
+    const totalLatency = Date.now() - startTime;
+    console.log('[AI Analysis] Generated', {
+      ticker,
+      date: targetDate,
+      claudeLatency: `${claudeLatency}ms`,
+      totalLatency: `${totalLatency}ms`,
+    });
+
+    return NextResponse.json(analysis);
+  } catch (error: any) {
+    console.error('[AI Analysis] Error:', error);
+    
+    // Try to return stale cache as fallback
+    const body: AIAnalysisRequest = await request.json();
+    const stale = await checkCache(body.ticker, body.date || new Date().toISOString().split('T')[0], true);
+    if (stale) {
+      console.log('[AI Analysis] Returning stale cache as fallback');
+      return NextResponse.json(stale);
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to generate analysis',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function checkCache(ticker: string, date: string, allowStale = false): Promise<AIAnalysisResponse | null> {
+  const db = await getDatabase();
+  const query = allowStale
+    ? `SELECT analysis_json, created_at FROM option_analysis_cache WHERE ticker = ? AND date = ?`
+    : `SELECT analysis_json, created_at FROM option_analysis_cache WHERE ticker = ? AND date = ? AND expires_at > datetime('now')`;
+
+  const row = await db.get(query, [ticker, date]);
+
+  if (!row) return null;
+
+  const analysis = JSON.parse(row.analysis_json);
+  const cacheAge = Math.floor((Date.now() - new Date(row.created_at).getTime()) / 1000);
+
+  return {
+    ...analysis,
+    metadata: {
+      ...analysis.metadata,
+      isCached: true,
+      cacheAge,
+    },
+  };
+}
+
+async function storeInCache(ticker: string, date: string, analysis: AIAnalysisResponse): Promise<void> {
+  const db = await getDatabase();
+  const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+
+  await db.run(
+    `INSERT OR REPLACE INTO option_analysis_cache (ticker, date, analysis_json, expires_at) VALUES (?, ?, ?, ?)`,
+    [ticker, date, JSON.stringify(analysis), expiresAt]
+  );
+}
+
+async function getLatestSnapshot(ticker: string, date: string) {
+  const db = await getDatabase();
+  // Adjust query based on your actual schema
+  return await db.get(
+    `SELECT * FROM option_snapshots WHERE ticker = ? AND date <= ? ORDER BY date DESC LIMIT 1`,
+    [ticker, date]
+  );
+}
+
+async function getLatestProjection(ticker: string, date: string) {
+  const db = await getDatabase();
+  // Adjust query based on your actual schema
+  return await db.get(
+    `SELECT * FROM option_projections WHERE ticker = ? AND date <= ? ORDER BY date DESC LIMIT 1`,
+    [ticker, date]
+  );
+}
+```
+
+**Acceptance:**
+- [ ] API route responds to POST
+- [ ] Cache logic works (hit/miss)
+- [ ] Claude integration functional
+- [ ] Error handling with fallback
+- [ ] Logging in place
+
+---
+
+### Phase 2: Frontend Components (2-3 hours)
+
+#### Task 2.1: Create Reusable Components
 **Files:**
-- `app/api/options/ai-forecast/route.ts` (NEW)
+- `app/reports/options-ai-analysis/components/AnalysisSection.tsx`
+- `app/reports/options-ai-analysis/components/NextDayForecast.tsx`
+- `app/reports/options-ai-analysis/components/HighlightsGrid.tsx`
+- `app/reports/options-ai-analysis/components/CacheNotice.tsx`
 
-**Steps:**
+**AnalysisSection.tsx:**
+```typescript
+'use client';
 
-1. **Create API endpoint:**
-   ```typescript
-   // app/api/options/ai-forecast/route.ts
-   
-   import { NextRequest, NextResponse } from 'next/server';
-   import { generateAIAnalysis } from '@/lib/aiOptionsForecast';
-   import { getOptionSnapshot, getOptionProjection } from '@/lib/db';
-   import type { OptionAnalysisContext } from '@/lib/types/aiOptionsForecast';
-   
-   export async function POST(request: NextRequest) {
-     try {
-       const { ticker, date, regenerate = false } = await request.json();
-       
-       // Validate inputs
-       if (!ticker || !date) {
-         return NextResponse.json(
-           { success: false, error: 'Missing ticker or date' },
-           { status: 400 }
-         );
-       }
-       
-       // Fetch snapshot and projection
-       const snapshot = getOptionSnapshot(ticker, date);
-       const projection = getOptionProjection(ticker, date);
-       
-       if (!snapshot || !projection) {
-         return NextResponse.json(
-           { success: false, error: `No data available for ${ticker} on ${date}` },
-           { status: 400 }
-         );
-       }
-       
-       // Build analysis context
-       const context: OptionAnalysisContext = {
-         ticker,
-         date,
-         snapshotMetrics: {
-           iv: snapshot.iv,
-           ivPercentile: snapshot.iv_percentile,
-           delta: JSON.parse(snapshot.greeks_delta),
-           gamma: JSON.parse(snapshot.greeks_gamma),
-           vega: JSON.parse(snapshot.greeks_vega),
-           theta: JSON.parse(snapshot.greeks_theta),
-           skew: snapshot.skew,
-           regimeType: snapshot.regime_type,
-         },
-         projectionData: {
-           mean: projection.mean,
-           std: projection.std,
-           probDistribution: JSON.parse(projection.prob_distribution),
-           keyLevels: JSON.parse(projection.key_levels),
-         },
-       };
-       
-       // Generate analysis (with caching unless regenerate=true)
-       const analysis = await generateAIAnalysis(context, !regenerate);
-       
-       // Calculate cache metadata
-       const cached = getAIForecast(ticker, date);
-       const cacheAge = cached
-         ? Math.floor((Date.now() - new Date(cached.created_at).getTime()) / 1000)
-         : 0;
-       
-       return NextResponse.json({
-         success: true,
-         analysis,
-         cached: !regenerate && cacheAge > 0,
-         cacheAge,
-         nextUpdate: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-       });
-       
-     } catch (error) {
-       console.error('AI forecast API error:', error);
-       
-       return NextResponse.json(
-         {
-           success: false,
-           error: error instanceof Error ? error.message : 'Internal server error',
-         },
-         { status: 500 }
-       );
-     }
-   }
-   ```
+import { Card } from '@/components/ui/Card';
+import { HighlightsGrid } from './HighlightsGrid';
+import type { Section } from '@/types/options-ai';
 
-2. **Test endpoint locally:**
-   ```bash
-   curl -X POST http://localhost:3002/api/options/ai-forecast \
-     -H "Content-Type: application/json" \
-     -d '{"ticker":"SPWX","date":"2026-03-09"}'
-   ```
+export function AnalysisSection({ title, icon, prose, highlights }: Section) {
+  return (
+    <Card className="p-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <span>{icon}</span>
+        <span>{title}</span>
+      </h2>
 
-**Acceptance Criteria:**
-- ✅ Endpoint returns 200 with valid analysis
-- ✅ Cached requests return quickly (<100ms)
-- ✅ Fresh requests complete within 10s
-- ✅ Error handling works (invalid ticker, missing data)
+      <p className="text-text-secondary leading-relaxed mb-4">{prose}</p>
 
----
+      {highlights && highlights.length > 0 && <HighlightsGrid highlights={highlights} />}
+    </Card>
+  );
+}
+```
 
-### Task 2.2: API Unit Tests
+**NextDayForecast.tsx:**
+```typescript
+'use client';
 
-**Estimated Time:** 1 hour  
-**Files:**
-- `__tests__/api/options/ai-forecast.test.ts` (NEW)
+import { Card } from '@/components/ui/Card';
+import { DataCard } from '@/components/ui/DataCard';
+import type { NextDayProjection } from '@/types/options-ai';
 
-**Steps:**
+interface NextDayForecastProps {
+  projection: NextDayProjection;
+}
 
-1. **Write API tests:**
-   ```typescript
-   import { POST } from '@/app/api/options/ai-forecast/route';
-   import { NextRequest } from 'next/server';
-   
-   describe('POST /api/options/ai-forecast', () => {
-     it('returns cached forecast when available', async () => {
-       const request = new NextRequest('http://localhost:3002/api/options/ai-forecast', {
-         method: 'POST',
-         body: JSON.stringify({ ticker: 'SPWX', date: '2026-03-09' }),
-       });
-       
-       const response = await POST(request);
-       const data = await response.json();
-       
-       expect(response.status).toBe(200);
-       expect(data.success).toBe(true);
-       expect(data.analysis).toBeDefined();
-     });
-     
-     it('returns 400 for missing snapshot', async () => {
-       const request = new NextRequest('http://localhost:3002/api/options/ai-forecast', {
-         method: 'POST',
-         body: JSON.stringify({ ticker: 'INVALID', date: '2026-03-09' }),
-       });
-       
-       const response = await POST(request);
-       const data = await response.json();
-       
-       expect(response.status).toBe(400);
-       expect(data.error).toContain('No data available');
-     });
-   });
-   ```
+export function NextDayForecast({ projection }: NextDayForecastProps) {
+  const confidenceColor = {
+    high: 'text-gain',
+    medium: 'text-neutral',
+    low: 'text-loss',
+  }[projection.confidence];
 
-**Acceptance Criteria:**
-- ✅ All tests pass
-- ✅ Coverage >80% for API route
+  return (
+    <Card className="p-6 bg-accent/5 border-accent">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <span>🎯</span>
+        <span>Next Trading Day Forecast</span>
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <DataCard
+          label="Target Range"
+          value={`$${projection.targetLow.toFixed(2)}–$${projection.targetHigh.toFixed(2)}`}
+        />
+        <DataCard label="Confidence" value={projection.confidence.toUpperCase()} valueClassName={confidenceColor} />
+        <DataCard label="Move >1% Probability" value={`${(projection.moveProb * 100).toFixed(0)}%`} />
+      </div>
+
+      <p className="text-text-secondary leading-relaxed">{projection.description}</p>
+    </Card>
+  );
+}
+```
+
+**HighlightsGrid.tsx:**
+```typescript
+'use client';
+
+import { DataCard } from '@/components/ui/DataCard';
+import type { Highlight } from '@/types/options-ai';
+
+interface HighlightsGridProps {
+  highlights: Highlight[];
+}
+
+export function HighlightsGrid({ highlights }: HighlightsGridProps) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {highlights.map((h) => (
+        <DataCard key={h.label} label={h.label} value={h.value} valueClassName={h.color ? `text-${h.color}` : ''} />
+      ))}
+    </div>
+  );
+}
+```
+
+**CacheNotice.tsx:**
+```typescript
+'use client';
+
+import type { Metadata } from '@/types/options-ai';
+
+interface CacheNoticeProps {
+  metadata: Metadata;
+}
+
+export function CacheNotice({ metadata }: CacheNoticeProps) {
+  const minutesAgo = Math.floor(metadata.cacheAge / 60);
+  const hoursAgo = Math.floor(minutesAgo / 60);
+
+  const ageText = hoursAgo >= 1 ? `${hoursAgo}h ago` : `${minutesAgo}m ago`;
+
+  return (
+    <div className="text-center text-sm text-text-tertiary py-4">
+      <p>
+        Generated {ageText} • Next update:{' '}
+        {new Date(metadata.nextUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </p>
+    </div>
+  );
+}
+```
+
+**Acceptance:**
+- [ ] All components render without errors
+- [ ] Props typed correctly
+- [ ] Responsive grid layouts
+- [ ] Data cards display correctly
 
 ---
 
-## Phase 3: Frontend Components (Days 3-4)
+#### Task 2.2: Create Main Page Component
+**File:** `app/reports/options-ai-analysis/page.tsx`
 
-### Task 3.1: AI Forecast Section Component
+```typescript
+import { AppShell } from '@/components/layout/AppShell';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { AnalysisSection } from './components/AnalysisSection';
+import { NextDayForecast } from './components/NextDayForecast';
+import { CacheNotice } from './components/CacheNotice';
+import type { AIAnalysisResponse } from '@/types/options-ai';
 
-**Estimated Time:** 3 hours  
-**Files:**
-- `app/components/options/AIOptionsForecastSection.tsx` (NEW)
-- `app/components/options/AIOptionsForecastSection.module.css` (NEW)
+async function getAnalysis(): Promise<AIAnalysisResponse> {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002';
+  
+  const res = await fetch(`${baseUrl}/api/options/ai-analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: 'SPWX' }), // MVP: hardcoded ticker
+    cache: 'no-store', // Always fetch fresh (API handles caching)
+  });
 
-**Steps:**
+  if (!res.ok) {
+    throw new Error('Failed to fetch analysis');
+  }
 
-1. **Create component:**
-   ```typescript
-   // app/components/options/AIOptionsForecastSection.tsx
-   
-   import type { AIOptionsForecast } from '@/lib/types/aiOptionsForecast';
-   import styles from './AIOptionsForecastSection.module.css';
-   
-   interface Props {
-     analysis: AIOptionsForecast;
-     loading?: boolean;
-     error?: string;
-   }
-   
-   export default function AIOptionsForecastSection({ analysis, loading, error }: Props) {
-     if (loading) {
-       return (
-         <div className={styles.container} data-testid="ai-forecast-section">
-           <div className={styles.loading}>Generating AI analysis...</div>
-         </div>
-       );
-     }
-     
-     if (error) {
-       return (
-         <div className={styles.container} data-testid="ai-forecast-section">
-           <div className={styles.error}>⚠️ {error}</div>
-         </div>
-       );
-     }
-     
-     return (
-       <div className={styles.container} data-testid="ai-forecast-section">
-         <h2 className={styles.title}>AI-Powered Forecast</h2>
-         
-         {/* Executive Summary */}
-         <div className={styles.summary}>
-           <p>{analysis.summary}</p>
-           <span className={styles.outlookBadge} data-outlook={analysis.outlook}>
-             {analysis.outlook.toUpperCase()}
-           </span>
-         </div>
-         
-         {/* Price Targets */}
-         <div className={styles.priceTargets}>
-           <h3>Price Targets (4 Weeks)</h3>
-           <div className={styles.targetGrid}>
-             <div className={styles.target}>
-               <span className={styles.label}>Conservative (25th %ile)</span>
-               <span className={styles.value} data-testid="price-target-conservative">
-                 ${analysis.priceTargets.conservative.toFixed(2)}
-               </span>
-             </div>
-             <div className={styles.target}>
-               <span className={styles.label}>Base Case (50th %ile)</span>
-               <span className={styles.value} data-testid="price-target-base">
-                 ${analysis.priceTargets.base.toFixed(2)}
-               </span>
-             </div>
-             <div className={styles.target}>
-               <span className={styles.label}>Aggressive (75th %ile)</span>
-               <span className={styles.value} data-testid="price-target-aggressive">
-                 ${analysis.priceTargets.aggressive.toFixed(2)}
-               </span>
-             </div>
-           </div>
-           <div className={styles.confidenceBar}>
-             <div
-               className={styles.confidenceFill}
-               style={{ width: `${analysis.priceTargets.confidence * 100}%` }}
-             />
-             <span className={styles.confidenceLabel}>
-               {(analysis.priceTargets.confidence * 100).toFixed(0)}% confidence
-             </span>
-           </div>
-         </div>
-         
-         {/* Regime Analysis */}
-         <div className={styles.regime}>
-           <h3>Volatility Regime</h3>
-           <div className={styles.regimeBadge} data-regime={analysis.regimeAnalysis.classification} data-testid="regime-badge">
-             {analysis.regimeAnalysis.classification.toUpperCase()}
-           </div>
-           <p className={styles.justification}>{analysis.regimeAnalysis.justification}</p>
-           <p className={styles.recommendation}>
-             <strong>Recommendation:</strong> {analysis.regimeAnalysis.recommendation}
-           </p>
-         </div>
-         
-         {/* Trading Levels */}
-         <div className={styles.tradingLevels}>
-           <h3>Key Trading Levels</h3>
-           <div className={styles.levelGrid}>
-             <div className={styles.level}>
-               <span className={styles.label}>Support</span>
-               <span className={styles.value}>${analysis.tradingLevels.keySupport.toFixed(2)}</span>
-             </div>
-             <div className={styles.level}>
-               <span className={styles.label}>Resistance</span>
-               <span className={styles.value}>${analysis.tradingLevels.keyResistance.toFixed(2)}</span>
-             </div>
-             <div className={styles.level}>
-               <span className={styles.label}>Stop Loss</span>
-               <span className={styles.value}>${analysis.tradingLevels.stopLoss.toFixed(2)}</span>
-             </div>
-           </div>
-           <div className={styles.profitTargets}>
-             <strong>Profit Targets:</strong>{' '}
-             {analysis.tradingLevels.profitTargets.map((pt, i) => (
-               <span key={i} className={styles.profitTarget}>${pt.toFixed(2)}</span>
-             ))}
-           </div>
-         </div>
-         
-         {/* Confidence */}
-         <div className={styles.confidence} data-testid="confidence-badge">
-           <strong>Overall Confidence:</strong>{' '}
-           <span className={styles.confidenceScore}>
-             {(analysis.confidence.overall * 100).toFixed(0)}%
-           </span>
-           <p className={styles.reasoning}>{analysis.confidence.reasoning}</p>
-         </div>
-       </div>
-     );
-   }
-   ```
+  return res.json();
+}
 
-2. **Create CSS module:**
-   ```css
-   /* app/components/options/AIOptionsForecastSection.module.css */
-   
-   .container {
-     background: white;
-     border-radius: 8px;
-     padding: 24px;
-     margin: 24px 0;
-     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-   }
-   
-   .title {
-     font-size: 24px;
-     margin-bottom: 16px;
-   }
-   
-   .summary {
-     background: #f8f9fa;
-     padding: 16px;
-     border-radius: 4px;
-     margin-bottom: 24px;
-     display: flex;
-     justify-content: space-between;
-     align-items: center;
-   }
-   
-   .outlookBadge {
-     padding: 4px 12px;
-     border-radius: 4px;
-     font-weight: bold;
-     font-size: 12px;
-   }
-   
-   .outlookBadge[data-outlook="bullish"] {
-     background: #d4edda;
-     color: #155724;
-   }
-   
-   .outlookBadge[data-outlook="neutral"] {
-     background: #fff3cd;
-     color: #856404;
-   }
-   
-   .outlookBadge[data-outlook="bearish"] {
-     background: #f8d7da;
-     color: #721c24;
-   }
-   
-   .priceTargets, .regime, .tradingLevels {
-     margin-bottom: 24px;
-   }
-   
-   .targetGrid, .levelGrid {
-     display: grid;
-     grid-template-columns: repeat(3, 1fr);
-     gap: 16px;
-     margin-top: 12px;
-   }
-   
-   .target, .level {
-     text-align: center;
-     padding: 12px;
-     background: #f8f9fa;
-     border-radius: 4px;
-   }
-   
-   .label {
-     display: block;
-     font-size: 12px;
-     color: #6c757d;
-     margin-bottom: 8px;
-   }
-   
-   .value {
-     display: block;
-     font-size: 20px;
-     font-weight: bold;
-   }
-   
-   .confidenceBar {
-     margin-top: 12px;
-     height: 24px;
-     background: #e9ecef;
-     border-radius: 4px;
-     position: relative;
-     overflow: hidden;
-   }
-   
-   .confidenceFill {
-     height: 100%;
-     background: linear-gradient(to right, #28a745, #20c997);
-     transition: width 0.3s ease;
-   }
-   
-   .confidenceLabel {
-     position: absolute;
-     top: 50%;
-     left: 50%;
-     transform: translate(-50%, -50%);
-     font-size: 12px;
-     font-weight: bold;
-     color: #212529;
-   }
-   
-   .regimeBadge {
-     display: inline-block;
-     padding: 8px 16px;
-     border-radius: 4px;
-     font-weight: bold;
-     margin-bottom: 12px;
-   }
-   
-   .regimeBadge[data-regime="elevated"] {
-     background: #f8d7da;
-     color: #721c24;
-   }
-   
-   .regimeBadge[data-regime="normal"] {
-     background: #d1ecf1;
-     color: #0c5460;
-   }
-   
-   .regimeBadge[data-regime="depressed"] {
-     background: #d4edda;
-     color: #155724;
-   }
-   
-   .profitTargets {
-     margin-top: 12px;
-   }
-   
-   .profitTarget {
-     display: inline-block;
-     margin-right: 8px;
-     padding: 4px 8px;
-     background: #e7f3ff;
-     border-radius: 4px;
-     font-weight: bold;
-   }
-   
-   .confidence {
-     background: #f8f9fa;
-     padding: 16px;
-     border-radius: 4px;
-   }
-   
-   .confidenceScore {
-     font-size: 18px;
-     font-weight: bold;
-     color: #28a745;
-   }
-   
-   .reasoning {
-     margin-top: 8px;
-     color: #6c757d;
-     font-size: 14px;
-   }
-   
-   .loading, .error {
-     text-align: center;
-     padding: 48px;
-     font-size: 16px;
-   }
-   
-   .error {
-     color: #721c24;
-     background: #f8d7da;
-   }
-   ```
+export default async function OptionsAIAnalysisPage() {
+  let data: AIAnalysisResponse;
 
-**Acceptance Criteria:**
-- ✅ Component renders without errors
-- ✅ All sections displayed (summary, targets, regime, levels)
-- ✅ Styling matches design specs
-- ✅ Mobile responsive
+  try {
+    data = await getAnalysis();
+  } catch (error) {
+    console.error('Failed to load analysis:', error);
+    return (
+      <AppShell>
+        <div className="p-8 text-center">
+          <p className="text-red-500">Failed to load AI analysis. Please try again later.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!data.success) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center">
+          <p className="text-red-500">Failed to load analysis: {data.error}</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <PageHeader title="Options AI Analysis" subtitle="AI-Powered Daily Insights" badge={data.metadata.date} />
+
+      <div className="max-w-5xl mx-auto space-y-6 p-6">
+        {data.sections.map((section) => (
+          <AnalysisSection key={section.id} {...section} />
+        ))}
+
+        <NextDayForecast projection={data.nextDayProjection} />
+
+        <CacheNotice metadata={data.metadata} />
+      </div>
+    </AppShell>
+  );
+}
+```
+
+**Acceptance:**
+- [ ] Page loads without errors
+- [ ] SSR works correctly
+- [ ] Error states render
+- [ ] All sections display
+- [ ] Mobile responsive
 
 ---
 
-### Task 3.2: Regime Change Alert Component
+### Phase 3: Testing & Polish (1-2 hours)
 
-**Estimated Time:** 1.5 hours  
-**Files:**
-- `app/components/options/RegimeChangeAlert.tsx` (NEW)
+#### Task 3.1: Write Unit Tests
+**File:** `app/api/options/ai-analysis/route.test.ts`
 
-**Steps:**
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { POST } from './route';
+import { NextRequest } from 'next/server';
 
-1. **Create component:**
-   ```typescript
-   // app/components/options/RegimeChangeAlert.tsx
-   
-   'use client';
-   
-   import { useState, useEffect } from 'react';
-   import styles from './RegimeChangeAlert.module.css';
-   
-   interface Props {
-     regimeChange: {
-       from: 'elevated' | 'normal' | 'depressed';
-       to: 'elevated' | 'normal' | 'depressed';
-       severity: number;
-       timestamp: string;
-     };
-     onDismiss?: () => void;
-   }
-   
-   export default function RegimeChangeAlert({ regimeChange, onDismiss }: Props) {
-     const [dismissed, setDismissed] = useState(false);
-     
-     useEffect(() => {
-       // Check if already dismissed (localStorage)
-       const key = `regime-alert-${regimeChange.timestamp}`;
-       if (localStorage.getItem(key) === 'dismissed') {
-         setDismissed(true);
-       }
-     }, [regimeChange.timestamp]);
-     
-     const handleDismiss = () => {
-       const key = `regime-alert-${regimeChange.timestamp}`;
-       localStorage.setItem(key, 'dismissed');
-       setDismissed(true);
-       onDismiss?.();
-     };
-     
-     if (dismissed) return null;
-     
-     return (
-       <div className={styles.alert} data-testid="regime-change-alert" data-severity={regimeChange.severity > 0.7 ? 'high' : 'medium'}>
-         <div className={styles.icon}>⚠️</div>
-         <div className={styles.content}>
-           <strong>Volatility Regime Change Detected</strong>
-           <p>
-             {regimeChange.from.toUpperCase()} → {regimeChange.to.toUpperCase()}
-           </p>
-           <span className={styles.timestamp}>
-             {new Date(regimeChange.timestamp).toLocaleString()}
-           </span>
-         </div>
-         <button className={styles.dismissBtn} onClick={handleDismiss}>
-           ✕
-         </button>
-       </div>
-     );
-   }
-   ```
+describe('AI Analysis API', () => {
+  it('should return cached analysis on cache hit', async () => {
+    // Mock database to return cached data
+    vi.mock('@/lib/db', () => ({
+      getDatabase: vi.fn(() => ({
+        get: vi.fn(() => ({
+          analysis_json: JSON.stringify({ sections: [], nextDayProjection: {} }),
+          created_at: new Date().toISOString(),
+        })),
+      })),
+    }));
 
-2. **Create CSS:**
-   ```css
-   /* app/components/options/RegimeChangeAlert.module.css */
-   
-   .alert {
-     display: flex;
-     align-items: center;
-     padding: 16px;
-     border-radius: 8px;
-     margin-bottom: 24px;
-     animation: slideDown 0.3s ease;
-   }
-   
-   .alert[data-severity="high"] {
-     background: #f8d7da;
-     border-left: 4px solid #721c24;
-   }
-   
-   .alert[data-severity="medium"] {
-     background: #fff3cd;
-     border-left: 4px solid #856404;
-   }
-   
-   @keyframes slideDown {
-     from {
-       opacity: 0;
-       transform: translateY(-20px);
-     }
-     to {
-       opacity: 1;
-       transform: translateY(0);
-     }
-   }
-   
-   .icon {
-     font-size: 32px;
-     margin-right: 16px;
-   }
-   
-   .content {
-     flex: 1;
-   }
-   
-   .content strong {
-     display: block;
-     margin-bottom: 4px;
-   }
-   
-   .timestamp {
-     font-size: 12px;
-     color: #6c757d;
-   }
-   
-   .dismissBtn {
-     background: none;
-     border: none;
-     font-size: 24px;
-     cursor: pointer;
-     padding: 4px 8px;
-   }
-   ```
+    const request = new NextRequest('http://localhost/api/options/ai-analysis', {
+      method: 'POST',
+      body: JSON.stringify({ ticker: 'SPWX' }),
+    });
 
-**Acceptance Criteria:**
-- ✅ Alert displays on regime change
-- ✅ Dismissible with localStorage persistence
-- ✅ Animation on first view
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.metadata.isCached).toBe(true);
+  });
+
+  it('should call Claude on cache miss', async () => {
+    // Test Claude integration
+    // TODO: Mock Claude API
+  });
+
+  it('should handle Claude API errors gracefully', async () => {
+    // TODO: Mock Claude failure
+  });
+});
+```
+
+**Acceptance:**
+- [ ] Tests written for cache hit/miss
+- [ ] Tests written for Claude integration
+- [ ] Tests written for error handling
+- [ ] All tests pass
 
 ---
 
-### Task 3.3: Integrate into Report Page
-
-**Estimated Time:** 2 hours  
-**Files:**
-- `app/reports/option-projection/page.tsx` (ENHANCED)
-
-**Steps:**
-
-1. **Add AI forecast fetch logic:**
-   ```typescript
-   // app/reports/option-projection/page.tsx
-   
-   import AIOptionsForecastSection from '@/app/components/options/AIOptionsForecastSection';
-   import RegimeChangeAlert from '@/app/components/options/RegimeChangeAlert';
-   
-   export default async function OptionProjectionReport({
-     searchParams,
-   }: {
-     searchParams: { ticker?: string; date?: string };
-   }) {
-     const ticker = searchParams.ticker || 'SPWX';
-     const date = searchParams.date || new Date().toISOString().split('T')[0];
-     
-     // Existing: fetch snapshot + projection
-     const snapshot = await getOptionSnapshot(ticker, date);
-     const projection = await getOptionProjection(ticker, date);
-     
-     // NEW: fetch AI forecast
-     let aiForecast = null;
-     let aiError = null;
-     
-     try {
-       const response = await fetch(`http://localhost:3002/api/options/ai-forecast`, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ ticker, date }),
-       });
-       
-       const data = await response.json();
-       if (data.success) {
-         aiForecast = data.analysis;
-       } else {
-         aiError = data.error;
-       }
-     } catch (error) {
-       console.error('Failed to fetch AI forecast:', error);
-       aiError = 'AI forecast unavailable';
-     }
-     
-     // Detect regime change
-     const regimeChange = detectRegimeChange(ticker, date);
-     
-     return (
-       <div className="container">
-         <h1>Option Projection Report: {ticker}</h1>
-         
-         {/* Regime change alert */}
-         {regimeChange && <RegimeChangeAlert regimeChange={regimeChange} />}
-         
-         {/* Existing: snapshot metrics */}
-         <SnapshotMetrics snapshot={snapshot} />
-         
-         {/* Existing: projection charts */}
-         <ProjectionCharts projection={projection} />
-         
-         {/* NEW: AI forecast section */}
-         {aiForecast && <AIOptionsForecastSection analysis={aiForecast} />}
-         {aiError && <AIOptionsForecastSection error={aiError} />}
-       </div>
-     );
-   }
-   
-   function detectRegimeChange(ticker: string, date: string) {
-     // Query DB for previous day's regime
-     const today = getAIForecast(ticker, date);
-     const yesterday = getAIForecast(ticker, getPreviousDate(date));
-     
-     if (!today || !yesterday) return null;
-     
-     if (today.regime_classification !== yesterday.regime_classification) {
-       return {
-         from: yesterday.regime_classification,
-         to: today.regime_classification,
-         severity: Math.abs(today.overall_confidence - yesterday.overall_confidence),
-         timestamp: today.created_at,
-       };
-     }
-     
-     return null;
-   }
-   ```
-
-**Acceptance Criteria:**
-- ✅ AI section appears below projection charts
-- ✅ Regime alert shows when regime changed
-- ✅ Error handling graceful (shows warning if AI unavailable)
+#### Task 3.2: Manual Testing Checklist
+- [ ] Visit `/reports/options-ai-analysis`
+- [ ] Verify page loads in <2s
+- [ ] Check all 5 sections render
+- [ ] Verify forecast section displays
+- [ ] Test mobile view (resize browser)
+- [ ] Test error state (break API temporarily)
+- [ ] Test cache hit (refresh page within 4h)
+- [ ] Verify cache notice shows correct age
+- [ ] Check console for errors
+- [ ] Verify Claude API called only once per 4h
 
 ---
 
-## Phase 4: Testing & QA (Days 5-6)
-
-### Task 4.1: E2E Tests
-
-**Estimated Time:** 2 hours  
-**Files:**
-- `e2e/option-projection-ai.spec.ts` (NEW)
-
-**Steps:**
-
-1. **Write E2E test:**
-   ```typescript
-   // e2e/option-projection-ai.spec.ts
-   
-   import { test, expect } from '@playwright/test';
-   
-   test('displays AI forecast section on report page', async ({ page }) => {
-     await page.goto('http://localhost:3002/reports/option-projection?ticker=SPWX');
-     
-     // Wait for AI section
-     await expect(page.locator('[data-testid="ai-forecast-section"]')).toBeVisible();
-     
-     // Verify price targets
-     await expect(page.locator('[data-testid="price-target-base"]')).toContainText('$');
-     
-     // Verify confidence badge
-     await expect(page.locator('[data-testid="confidence-badge"]')).toBeVisible();
-     
-     // Verify regime badge
-     const regimeBadge = page.locator('[data-testid="regime-badge"]');
-     await expect(regimeBadge).toHaveText(/ELEVATED|NORMAL|DEPRESSED/);
-   });
-   
-   test('displays regime change alert when detected', async ({ page }) => {
-     // TODO: Seed DB with regime change
-     await page.goto('http://localhost:3002/reports/option-projection?ticker=SPWX');
-     
-     const alert = page.locator('[data-testid="regime-change-alert"]');
-     if (await alert.isVisible()) {
-       await expect(alert).toContainText('Volatility Regime Change');
-     }
-   });
-   ```
-
-2. **Run tests:**
-   ```bash
-   npm run test:e2e
-   ```
-
-**Acceptance Criteria:**
-- ✅ All E2E tests pass
-- ✅ Report page loads within 3 seconds
+#### Task 3.3: Performance Optimization
+- [ ] Lazy-load chart components (if charts added later)
+- [ ] Optimize image sizes (if any images used)
+- [ ] Check Lighthouse score (target: >90)
+- [ ] Verify SSR rendering time <500ms
+- [ ] Check database query performance
 
 ---
 
-### Task 4.2: Manual QA Checklist
+### Phase 4: Integration & Deployment (1 hour)
 
-**Estimated Time:** 1 hour
+#### Task 4.1: Add Navigation Link
+**File:** `app/components/layout/Sidebar.tsx` (or equivalent)
 
+Add link to Options AI Analysis page:
+```typescript
+<NavLink href="/reports/options-ai-analysis" icon="🤖">
+  Options AI Analysis
+</NavLink>
+```
+
+**Acceptance:**
+- [ ] Link appears in sidebar
+- [ ] Link navigates correctly
+- [ ] Active state works
+
+---
+
+#### Task 4.2: Environment Variables
+**File:** `.env.local`
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+NEXT_PUBLIC_BASE_URL=http://localhost:3002
+```
+
+**Acceptance:**
+- [ ] Environment variables documented
+- [ ] Variables set in production
+- [ ] API key secured (not committed)
+
+---
+
+#### Task 4.3: Deploy to Worktree Server
+**Commands:**
+```bash
+cd /home/claw/worktrees/financial-analyzer/feature/options-ai-analysis
+npm install
+npm run build
+pm2 restart financial-analyzer-3002
+```
+
+**Acceptance:**
+- [ ] Server starts on port 3002
+- [ ] Page accessible at http://dev-center:3002/reports/options-ai-analysis
+- [ ] No console errors
+- [ ] Claude API working
+- [ ] Cache functional
+
+---
+
+#### Task 4.4: Create Pull Request
 **Checklist:**
-- [ ] Load report page → AI section appears
-- [ ] Price targets displayed (conservative, base, aggressive)
-- [ ] Confidence score shown and valid (0-100%)
-- [ ] Regime badge color-coded correctly
-- [ ] Trading levels all valid numbers
-- [ ] Regime change alert appears (if applicable)
-- [ ] Dismiss alert → doesn't reappear on refresh
-- [ ] Mobile responsive (test on iPhone/Android)
-- [ ] Error handling: disable Claude API → shows cached forecast + warning
+- [ ] All code committed
+- [ ] Tests passing
+- [ ] Linting clean
+- [ ] PR description written
+- [ ] Screenshots included
+- [ ] Linked to PRD
 
----
+**PR Template:**
+```markdown
+## Feature: Options AI Analysis Page
 
-## Phase 5: Documentation & Launch (Days 7-8)
+### Summary
+Implements AI-powered options analysis page with Claude-generated insights.
 
-### Task 5.1: Backfill AI Forecasts
+### Changes
+- Created `/api/options/ai-analysis` endpoint
+- Built page component at `/reports/options-ai-analysis`
+- Added database migration for cache table
+- Integrated Claude API for analysis generation
+- Implemented 4-hour caching strategy
 
-**Estimated Time:** 2 hours  
-**Files:**
-- `scripts/backfill-ai-forecasts.ts` (NEW)
+### Testing
+- [x] Unit tests pass
+- [x] Manual testing complete
+- [x] Mobile responsive
+- [x] Error handling verified
 
-**Steps:**
+### Screenshots
+[TODO: Add screenshots]
 
-1. **Create backfill script:**
-   ```typescript
-   // scripts/backfill-ai-forecasts.ts
-   
-   import { generateAIAnalysis } from '../lib/aiOptionsForecast';
-   import { getOptionSnapshot, getOptionProjection } from '../lib/db';
-   
-   async function backfillAIForecasts() {
-     const ticker = 'SPWX';
-     const today = new Date();
-     
-     for (let i = 0; i < 30; i++) {
-       const date = new Date(today);
-       date.setDate(today.getDate() - i);
-       const dateStr = date.toISOString().split('T')[0];
-       
-       console.log(`Generating forecast for ${ticker} on ${dateStr}...`);
-       
-       const snapshot = getOptionSnapshot(ticker, dateStr);
-       const projection = getOptionProjection(ticker, dateStr);
-       
-       if (!snapshot || !projection) {
-         console.warn(`  Skipping ${dateStr} — no data`);
-         continue;
-       }
-       
-       const context = buildContext(ticker, dateStr, snapshot, projection);
-       
-       try {
-         await generateAIAnalysis(context, false); // Force fresh generation
-         console.log(`  ✅ Success`);
-       } catch (error) {
-         console.error(`  ❌ Error:`, error);
-       }
-       
-       // Rate limit: 1 request per 2 seconds
-       await new Promise(resolve => setTimeout(resolve, 2000));
-     }
-     
-     console.log('Backfill complete!');
-   }
-   
-   backfillAIForecasts();
-   ```
-
-2. **Run backfill:**
-   ```bash
-   npx tsx scripts/backfill-ai-forecasts.ts
-   ```
-
-**Acceptance Criteria:**
-- ✅ 30 days of forecasts generated
-- ✅ All forecasts saved to DB
-- ✅ No errors during backfill
-
----
-
-### Task 5.2: Update Documentation
-
-**Estimated Time:** 1.5 hours  
-**Files:**
-- `README.md` (ENHANCED)
-- `DEV.md` (ENHANCED)
-
-**Steps:**
-
-1. **Update README.md:**
-   ```markdown
-   ## Features
-   
-   ### AI-Powered Options Forecast (NEW)
-   
-   Intelligent analysis of option price projections using Claude AI.
-   
-   **Capabilities:**
-   - Executive summary and market outlook (bullish/neutral/bearish)
-   - Probability-weighted price targets (conservative, base, aggressive)
-   - Volatility regime classification (elevated/normal/depressed)
-   - Smart trading levels (support, resistance, profit targets, stop loss)
-   - Confidence scores and reasoning
-   
-   **Usage:**
-   
-   View AI analysis on the Option Projection Report:
-   ```
-   http://localhost:3002/reports/option-projection?ticker=SPWX
-   ```
-   
-   **API Endpoint:**
-   
-   ```bash
-   curl -X POST http://localhost:3002/api/options/ai-forecast \
-     -H "Content-Type: application/json" \
-     -d '{"ticker":"SPWX","date":"2026-03-09","regenerate":false}'
-   ```
-   
-   **Environment Variables:**
-   
-   ```bash
-   ANTHROPIC_API_KEY=sk-ant-your-key-here
-   ```
-   ```
-
-2. **Update DEV.md:**
-   ```markdown
-   ## How to Regenerate AI Forecasts
-   
-   ### Daily Backfill (Automated)
-   
-   AI forecasts are generated daily at 16:00 UTC via cron job.
-   
-   ### Manual Regeneration
-   
-   **Single Forecast:**
-   ```bash
-   curl -X POST http://localhost:3002/api/options/ai-forecast \
-     -H "Content-Type: application/json" \
-     -d '{"ticker":"SPWX","date":"2026-03-09","regenerate":true}'
-   ```
-   
-   **Backfill 30 Days:**
-   ```bash
-   npx tsx scripts/backfill-ai-forecasts.ts
-   ```
-   
-   ### Troubleshooting
-   
-   **Claude API Errors:**
-   - Check `ANTHROPIC_API_KEY` is set in `.env.local`
-   - Verify API quota not exceeded (check Anthropic dashboard)
-   - Fallback: cached forecasts served automatically
-   
-   **Invalid Analysis:**
-   - Run validation: `npm run test __tests__/lib/aiOptionsForecast.test.ts`
-   - Check logs for Claude response parsing errors
-   - Adjust system prompt if needed (see `lib/aiOptionsForecast.ts`)
-   ```
-
-**Acceptance Criteria:**
-- ✅ README describes feature clearly
-- ✅ DEV.md has regeneration instructions
-- ✅ Environment variables documented
-
----
-
-### Task 5.3: Final Validation & Deploy
-
-**Estimated Time:** 2 hours
-
-**Checklist:**
-
-**Pre-Deploy:**
-- [ ] All unit tests passing (`npm test`)
-- [ ] All E2E tests passing (`npm run test:e2e`)
-- [ ] Manual QA complete (see Task 4.2)
-- [ ] 30 days of forecasts backfilled
-- [ ] Documentation updated (README, DEV.md)
-- [ ] Code reviewed (self-review or peer review)
-
-**Deploy to Staging:**
-- [ ] Merge feature branch to `develop`
-- [ ] Deploy to staging environment (port 3002)
-- [ ] Smoke test: visit `/reports/option-projection` → AI section loads
-- [ ] Test API endpoint manually
-- [ ] Check logs for errors
-
-**Deploy to Production:**
-- [ ] Merge `develop` to `main`
-- [ ] Deploy to production
-- [ ] Verify AI forecasts generating correctly
-- [ ] Monitor error rates (target: <0.5%)
-- [ ] Monitor Claude API costs (target: <$5/month)
-
-**Post-Deploy:**
-- [ ] Announce feature in team channel
-- [ ] Update project board (move tasks to "Done")
-- [ ] Schedule retro meeting
-
----
-
-## Success Metrics (Track Post-Launch)
-
-**Week 1:**
-- [ ] AI forecast generation success rate >95%
-- [ ] Cache hit rate >80%
-- [ ] API response time p95 <3s
-- [ ] No critical errors
-
-**Week 2:**
-- [ ] User engagement: >50% of report page viewers interact with AI section
-- [ ] Forecast accuracy validation started (4-week lag)
-- [ ] Claude API cost within budget (<$5/month)
-
-**Month 1:**
-- [ ] Forecast accuracy: >70% within 1-sigma range (backtest 30 forecasts)
-- [ ] User feedback: >4/5 stars (in-app survey)
-- [ ] Feature adoption: >50% of active users view AI section
-
----
-
-## Risk Mitigation
-
-**Risk:** Claude API down during critical hours  
-**Mitigation:** Cached forecasts served automatically + warning banner
-
-**Risk:** Invalid AI responses (hallucination)  
-**Mitigation:** Validation layer catches out-of-bounds targets; tests verify schema
-
-**Risk:** Performance degradation  
-**Mitigation:** Aggressive caching (4h), async generation in background
-
-**Risk:** Cost overruns  
-**Mitigation:** Track spend daily; alert if >$10/month; consider batching or model downgrade
-
----
-
-## Appendix: Useful Commands
-
-**Run Full Test Suite:**
-```bash
-npm test && npm run test:e2e
+### Closes
+- FEAT-001 (PRD)
 ```
 
-**Generate Fresh Forecast:**
-```bash
-curl -X POST http://localhost:3002/api/options/ai-forecast \
-  -H "Content-Type: application/json" \
-  -d '{"ticker":"SPWX","date":"2026-03-09","regenerate":true}'
-```
-
-**Check Database:**
-```bash
-sqlite3 data/dev.db "SELECT ticker, date, summary FROM ai_forecasts ORDER BY created_at DESC LIMIT 5;"
-```
-
-**Monitor Claude API Costs:**
-```bash
-# Visit: https://console.anthropic.com/settings/billing
-```
+**Acceptance:**
+- [ ] PR created
+- [ ] All checks passing
+- [ ] Ready for review
 
 ---
 
-**Ready to implement! Assign tasks and get started.**
+## Summary Checklist
+
+### Database
+- [ ] Migration created
+- [ ] Table exists
+- [ ] Indexes created
+
+### API
+- [ ] Types defined
+- [ ] Claude prompt builder
+- [ ] Claude API client
+- [ ] API route handler
+- [ ] Cache logic working
+- [ ] Error handling
+
+### Frontend
+- [ ] Page component (SSR)
+- [ ] AnalysisSection component
+- [ ] NextDayForecast component
+- [ ] HighlightsGrid component
+- [ ] CacheNotice component
+- [ ] Navigation link
+
+### Testing
+- [ ] Unit tests written
+- [ ] Manual testing complete
+- [ ] Performance verified
+
+### Deployment
+- [ ] Environment variables set
+- [ ] Server running on port 3002
+- [ ] PR created
+- [ ] Ready for review
+
+---
+
+**Estimated Total Time:** 6-8 hours  
+**Priority Order:** Phase 1 → Phase 2 → Phase 3 → Phase 4  
+**Blockers:** None (all dependencies exist)
+
+**Next Step:** Engineer begins implementation following this task list.

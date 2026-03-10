@@ -87,6 +87,21 @@ const SCHEMA_V4 = `
     ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
   CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
     ON option_prices(expiry_date);
+
+  CREATE TABLE IF NOT EXISTS ai_forecasts (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    date              TEXT    NOT NULL,
+    ticker            TEXT    NOT NULL,
+    forecast_json     TEXT    NOT NULL,
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    expires_at        INTEGER NOT NULL,
+    
+    UNIQUE(date, ticker)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
+    ON ai_forecasts(date DESC, ticker);
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_expiry 
+    ON ai_forecasts(expires_at);
 `;
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
@@ -270,6 +285,15 @@ export interface DbInstance {
   insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
   getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
   getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
+  
+  insertOrReplaceAIForecast(date: string, ticker: string, forecastJson: object, expiresInHours?: number): { success: boolean; cached: boolean };
+  getAIForecast(date: string, ticker: string): object | null;
+  
+  insertOrReplaceAnalysisCache(ticker: string, date: string, analysisJson: string, expiresAt: string): void;
+  getAnalysisCache(ticker: string, date: string, allowStale?: boolean): any;
+  
+  insertOrReplaceAIForecast(date: string, ticker: string, forecastJson: object, expiresInHours?: number): { success: boolean; cached: boolean };
+  getAIForecast(date: string, ticker: string): any;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -619,6 +643,82 @@ export function createDb(dbPath: string): DbInstance {
     return [];
   }
 
+  // ─── AI Analysis Cache CRUD ────────────────────────────────────────────────
+
+  interface AnalysisCacheRow {
+    id: number;
+    date: string;
+    ticker: string;
+    analysis_json: string;
+    created_at: string;
+    expires_at: string;
+  }
+
+  function insertOrReplaceAnalysisCache(
+    ticker: string,
+    date: string,
+    analysisJson: string,
+    expiresAt: string,
+  ): void {
+    try {
+      db.prepare(`
+        INSERT INTO ai_forecasts (ticker, date, forecast_json, expires_at, created_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(date, ticker) DO UPDATE SET
+          forecast_json = excluded.forecast_json,
+          expires_at = excluded.expires_at
+      `).run(ticker, date, analysisJson, expiresAt);
+    } catch (error) {
+      console.error('[AI Analysis Cache] Insert failed:', error);
+    }
+  }
+
+  function getAnalysisCache(ticker: string, date: string, allowStale = false): AnalysisCacheRow | null {
+    try {
+      const query = allowStale
+        ? `SELECT id, date, ticker, forecast_json as analysis_json, datetime(created_at) as created_at, datetime(expires_at) as expires_at FROM ai_forecasts WHERE ticker = ? AND date = ? LIMIT 1`
+        : `SELECT id, date, ticker, forecast_json as analysis_json, datetime(created_at) as created_at, datetime(expires_at) as expires_at FROM ai_forecasts WHERE ticker = ? AND date = ? AND expires_at > datetime('now') LIMIT 1`;
+
+      const row = db.prepare(query).get(ticker, date) as AnalysisCacheRow | undefined;
+      return row ?? null;
+    } catch (error) {
+      console.error('[AI Analysis Cache] Retrieval failed:', error);
+      return null;
+    }
+  }
+
+  // ─── AI Forecast CRUD (alternative interface for backwards compatibility) ──
+
+  function insertOrReplaceAIForecast(
+    date: string,
+    ticker: string,
+    forecastJson: object,
+    expiresInHours = 4,
+  ): { success: boolean; cached: boolean } {
+    const expiresAt = new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString();
+    try {
+      insertOrReplaceAnalysisCache(ticker, date, JSON.stringify(forecastJson), expiresAt);
+      return { success: true, cached: true };
+    } catch (error) {
+      console.error('[AI Forecast Cache] Insert failed:', error);
+      return { success: false, cached: false };
+    }
+  }
+
+  function getAIForecast(date: string, ticker: string): any {
+    try {
+      const cache = getAnalysisCache(ticker, date, false);
+      if (!cache) return null;
+      return {
+        forecast_json: cache.analysis_json,
+        created_at: cache.created_at,
+      };
+    } catch (error) {
+      console.error('[AI Forecast Cache] Retrieval failed:', error);
+      return null;
+    }
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
@@ -630,7 +730,7 @@ export function createDb(dbPath: string): DbInstance {
       ...raw,
       prob_distribution: JSON.parse(raw.prob_distribution as string),
       key_levels: JSON.parse(raw.key_levels as string),
-    } as OptionProjection;
+    } as unknown as OptionProjection;
   }
 
   return {
@@ -647,6 +747,10 @@ export function createDb(dbPath: string): DbInstance {
     insertOptionPrice,
     getOptionPrices,
     getUnderlyingPrices,
+    insertOrReplaceAIForecast,
+    getAIForecast,
+    insertOrReplaceAnalysisCache,
+    getAnalysisCache,
   };
 }
 
@@ -676,5 +780,13 @@ export const getOptionProjection      = _instance.getOptionProjection.bind(_inst
 export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
 export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
 export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
+
+// AI Forecasts
+export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
+export const getAIForecast             = _instance.getAIForecast.bind(_instance);
+
+// Analysis Cache
+export const insertOrReplaceAnalysisCache = _instance.insertOrReplaceAnalysisCache.bind(_instance);
+export const getAnalysisCache             = _instance.getAnalysisCache.bind(_instance);
 
 export default _instance.db;

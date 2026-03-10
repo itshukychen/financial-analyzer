@@ -1,152 +1,163 @@
-# Option Price Projection - Documentation
+# Options AI Analysis - Project Documentation
 
-This directory contains all design and planning documents for the **SPWX Put Options Price Projection** feature.
-
----
-
-## 📚 Document Guide
-
-### [SUMMARY.md](./SUMMARY.md)
-**→ Start here!**  
-Quick overview of the feature, architecture, acceptance criteria, and next steps.
-
-**Read this if you want:**
-- High-level understanding of what we're building
-- Quick start instructions
-- Validation checklist
+**Feature:** Replace Option Projection with AI-Based Analysis Page  
+**Status:** Design Complete - Ready for Implementation  
+**Date:** 2026-03-10  
+**Worktree:** `/home/claw/worktrees/financial-analyzer/feature/options-ai-analysis`  
+**Port:** 3002
 
 ---
 
-### [prd-option-price-projection.md](./prd-option-price-projection.md)
-**Product Requirements Document**  
-Complete product specification with user stories, success criteria, and scope.
+## 📋 Documentation Index
 
-**Read this if you want to understand:**
-- WHY we're building this
-- WHAT problem it solves
-- WHO will use it
-- WHAT success looks like
+### 1. [PRD - Product Requirements](./prd-options-ai-analysis.md)
+**Purpose:** Complete product specification and requirements  
+**Audience:** PM, Stakeholders, Engineering team  
+**Contains:**
+- Feature overview and goals
+- User stories and acceptance criteria
+- Technical architecture overview
+- Success metrics and cost analysis
+- Q&A and clarifications
 
-**Key sections:**
-- Problem statement & goals
-- User stories
-- Scope & deliverables
-- Success metrics
-- Out of scope items
-
----
-
-### [design-option-price-projection.md](./design-option-price-projection.md)
-**Technical Design Document**  
-Detailed technical architecture, API specs, database schema, and component design.
-
-**Read this if you want to understand:**
-- HOW to build it
+### 2. [DESIGN - Technical Design](./DESIGN.md)
+**Purpose:** Detailed technical architecture and implementation plan  
+**Audience:** Engineering team  
+**Contains:**
+- System architecture diagrams
+- Component hierarchy
+- API design and schemas
 - Database schema
-- API endpoints & response formats
-- Component architecture
-- Analytics algorithms (IV, Greeks, HV)
-- Testing strategy
+- Claude integration details
+- Error handling strategy
+- Testing plan
+- Performance optimization
+- Deployment plan
 
-**Key sections:**
-- Architecture diagrams
-- Database schema (SQL + types)
-- Analytics library design (Black-Scholes formulas)
-- API design (request/response schemas)
-- UI component specs
-- Mock data strategy
-
----
-
-### [tasks-option-price-projection.md](./tasks-option-price-projection.md)
-**Implementation Task Breakdown**  
-Step-by-step guide for the engineer. Lists every task, in order, with code examples.
-
-**Read this if you're:**
-- The engineer implementing this
-- Reviewing implementation progress
-- Estimating time remaining
-
-**Structure:**
-- 5 phases (Foundation → Analytics → API → UI → Polish)
-- ~25 tasks total
-- Each task has: actions, code examples, tests, acceptance criteria
-- Time estimates per phase
+### 3. [TASKS - Implementation Checklist](./TASKS.md)
+**Purpose:** Step-by-step implementation guide  
+**Audience:** Engineer agent  
+**Contains:**
+- Phase-by-phase breakdown (4 phases)
+- Task-level checklist with code examples
+- Acceptance criteria per task
+- Time estimates
+- Final deployment steps
 
 ---
 
-## 🗺️ How to Use These Docs
+## 🎯 Quick Start for Engineer
 
-### For **Product Managers**:
-1. Read: **PRD** (understand requirements)
-2. Skim: **SUMMARY** (check acceptance criteria)
-3. Monitor: **Tasks** (track engineer progress)
+1. **Read PRD** → Understand the feature and goals
+2. **Review DESIGN** → Understand the architecture
+3. **Follow TASKS** → Implement step-by-step
 
-### For **Engineers**:
-1. Read: **SUMMARY** (quick start)
-2. Read: **Design** (understand architecture)
-3. Follow: **Tasks** (implement step-by-step)
-4. Reference: **PRD** (clarify product intent)
-
-### For **Reviewers** (QA, Code Review):
-1. Read: **SUMMARY** (understand what's being built)
-2. Check: **Tasks** (validation checklist)
-3. Reference: **Design** (verify technical approach)
-
-### For **Stakeholders**:
-1. Read: **SUMMARY** (high-level overview)
-2. Skim: **PRD** (goals & success criteria)
+**Estimated Time:** 6-8 hours  
+**Priority:** High  
+**Blockers:** None
 
 ---
 
-## 📋 Quick Reference
+## 🏗️ Architecture Overview
 
-### Feature Scope
-- **Primary:** SPWX put options analysis
-- **Dashboard widget:** IV, implied move, regime
-- **Report page:** Greeks, probability distributions, AI insights
-- **Data source:** Mock data (MVP), real API later
-
-### Key Files to Implement
 ```
-lib/db.ts                                    (database schema)
-lib/optionsAnalytics.ts                      (IV, Greeks, HV)
-lib/mockOptionsData.ts                       (test data)
-scripts/backfill-option-data.ts              (populate DB)
-app/api/options/snapshot/route.ts            (API endpoint)
-app/api/options/projection/route.ts          (API endpoint)
-app/components/options/OptionProjectionWidget.tsx
-app/reports/option-projection/page.tsx
+User Browser
+    ↓
+Next.js SSR Page (/reports/options-ai-analysis)
+    ↓
+API Route (/api/options/ai-analysis)
+    ├─ Check cache (4-hour TTL)
+    ├─ Generate with Claude (if miss)
+    └─ Store in cache
+    ↓
+Components
+    ├─ AnalysisSection (5 sections)
+    ├─ NextDayForecast
+    └─ CacheNotice
 ```
 
-### Acceptance Criteria Summary
-- [ ] Widget loads in < 500ms
-- [ ] Report loads in < 2s
-- [ ] 30 days of data in database
-- [ ] All tests pass (unit + E2E)
-- [ ] Mobile responsive
-- [ ] No console errors
+---
 
-### Time Estimate
-**26-36 hours** (3-5 days for one engineer)
+## 📊 Key Metrics
+
+**Performance:**
+- Page load: <2s (SSR + cache hit)
+- API response: <1s (cache hit), <3s (cache miss)
+- Cache hit rate target: >90%
+
+**Cost:**
+- Target: <$0.10/day
+- Estimated: ~$0.08/day
+- Monthly: ~$2.43
+
+**Features:**
+- 5 AI-generated analysis sections
+- Next-day price projection
+- 4-hour caching
+- Graceful error handling
 
 ---
 
-## 🔄 Document Updates
+## 🔧 Tech Stack
 
-| Date | Document | Change | Author |
-|------|----------|--------|--------|
-| 2026-03-09 | All | Initial creation | Architect |
+**Frontend:**
+- Next.js 14 (App Router)
+- React Server Components
+- TypeScript
+- Tailwind CSS
+
+**Backend:**
+- Next.js API Routes
+- SQLite (option_analysis_cache)
+- Claude 3.5 Sonnet API
+
+**Data Sources:**
+- Existing option_snapshots table
+- Existing option_projections table
 
 ---
 
-## 📞 Need Help?
+## ✅ Implementation Phases
 
-**Unclear requirement?** → Check PRD  
-**Technical question?** → Check Design  
-**Implementation question?** → Check Tasks  
-**Still stuck?** → Ask architect or PM
+### Phase 1: Database & API (2-3h)
+- Create cache table
+- Build Claude integration
+- Create API route
+
+### Phase 2: Frontend (2-3h)
+- Build page component
+- Create child components
+- Wire up data flow
+
+### Phase 3: Testing (1-2h)
+- Unit tests
+- Manual testing
+- Performance checks
+
+### Phase 4: Deploy (1h)
+- Add navigation
+- Deploy to port 3002
+- Create PR
 
 ---
 
-**Happy building!** 🚀
+## 📝 Notes
+
+**MVP Scope:**
+- Single ticker (SPWX) hardcoded
+- Latest data only (no date picker)
+- No custom expiry selection
+- No export functionality
+
+**Future Enhancements:**
+- Multi-ticker support
+- Historical analysis archive
+- Custom date/expiry selection
+- PDF export
+- Alert integration
+
+---
+
+**Questions?** See PRD Section 14 (Q&A) or DESIGN Section 14 (Open Questions)
+
+**Status:** ✅ Design complete, ready for Engineer to begin implementation

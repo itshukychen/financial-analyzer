@@ -1,5 +1,5 @@
 import AppShell from '@/app/components/AppShell';
-import { PageHeader } from '@/app/components/PageHeader';
+import PageHeader from '@/app/components/PageHeader';
 import { AnalysisSection } from './components/AnalysisSection';
 import { NextDayForecast } from './components/NextDayForecast';
 import { CacheNotice } from './components/CacheNotice';

@@ -2,7 +2,6 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { OptionAnalysisContext, AIOptionsForecast } from './types/aiOptionsForecast';
-import { getAIForecast, insertOrReplaceAIForecast } from './db';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,

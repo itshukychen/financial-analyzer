@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAIAnalysis } from '@/lib/aiOptionsForecast';
-import { getOptionSnapshot, getOptionProjection, getAIForecast, type KeyLevel } from '@/lib/db';
+import { getOptionSnapshot, getOptionProjection, type KeyLevel } from '@/lib/db';
 import type { OptionAnalysisContext } from '@/lib/types/aiOptionsForecast';
 
 export async function POST(request: NextRequest) {
@@ -57,17 +57,11 @@ export async function POST(request: NextRequest) {
     // Generate analysis (with caching unless regenerate=true)
     const analysis = await generateAIAnalysis(context, !regenerate);
 
-    // Calculate cache metadata
-    const cached = getAIForecast(ticker, date);
-    const cacheAge = cached
-      ? Math.floor((Date.now() - new Date(cached.created_at).getTime()) / 1000)
-      : 0;
-
     return NextResponse.json({
       success: true,
       analysis,
-      cached: !regenerate && cacheAge > 0,
-      cacheAge,
+      cached: false,
+      cacheAge: 0,
       nextUpdate: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
     });
   } catch (error) {

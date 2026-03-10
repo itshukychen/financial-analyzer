@@ -87,6 +87,18 @@ const SCHEMA_V4 = `
     ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
   CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
     ON option_prices(expiry_date);
+
+  CREATE TABLE IF NOT EXISTS ai_forecasts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker        TEXT    NOT NULL,
+    date          TEXT    NOT NULL,
+    forecast_json TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(ticker, date)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
+    ON ai_forecasts(ticker, date DESC);
 `;
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
@@ -251,6 +263,14 @@ export interface OptionPrice {
   created_at: number;
 }
 
+export interface AIForecastRow {
+  id: number;
+  ticker: string;
+  date: string;
+  forecast_json: string;  // JSON-serialized AIOptionsForecast
+  created_at: number;     // Unix timestamp
+}
+
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
@@ -270,6 +290,9 @@ export interface DbInstance {
   insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
   getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
   getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
+  
+  getAIForecast(ticker: string, date: string): AIForecastRow | null;
+  insertOrReplaceAIForecast(ticker: string, date: string, forecast: object): AIForecastRow;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -282,12 +305,17 @@ function migrate(db: Database.Database): void {
   const hasOptionPrices = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='option_prices'"
   ).get();
+  const hasAIForecasts = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts'"
+  ).get();
   
   // Migrate v1 → v2
   if (cols.includes('period')) {
     // v2 already or later
     if (hasOptionSnapshots) {
-      if (hasOptionPrices) return; // Already at v4
+      if (hasOptionPrices) {
+        if (hasAIForecasts) return; // Already at v5
+      }
     }
   } else {
     // v1 table exists but lacks period — rebuild
@@ -393,6 +421,23 @@ function migrate(db: Database.Database): void {
         ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
       CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
         ON option_prices(expiry_date);
+    `);
+  }
+  
+  // Create v5 ai_forecasts table if it doesn't exist
+  if (!hasAIForecasts) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_forecasts (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker        TEXT    NOT NULL,
+        date          TEXT    NOT NULL,
+        forecast_json TEXT    NOT NULL,
+        created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        
+        UNIQUE(ticker, date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
+        ON ai_forecasts(ticker, date DESC);
     `);
   }
 }
@@ -619,13 +664,32 @@ export function createDb(dbPath: string): DbInstance {
     return [];
   }
 
+  // ─── AI Forecast CRUD ───────────────────────────────────────────────────────
+
+  function getAIForecast(ticker: string, date: string): AIForecastRow | null {
+    return (db.prepare(
+      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?'
+    ).get(ticker, date) as AIForecastRow) ?? null;
+  }
+
+  function insertOrReplaceAIForecast(ticker: string, date: string, forecast: object): AIForecastRow {
+    db.prepare(`
+      INSERT INTO ai_forecasts (ticker, date, forecast_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(ticker, date) DO UPDATE SET
+        forecast_json = excluded.forecast_json,
+        created_at = (strftime('%s', 'now'))
+    `).run(ticker, date, JSON.stringify(forecast));
+
+    return db.prepare(
+      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?'
+    ).get(ticker, date) as AIForecastRow;
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
-    return {
-      ...raw,
-      prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution as string) : [],
-    } as OptionSnapshot;
+    return raw as unknown as OptionSnapshot;
   }
 
   function parseOptionProjection(raw: Record<string, unknown>): OptionProjection {
@@ -650,6 +714,8 @@ export function createDb(dbPath: string): DbInstance {
     insertOptionPrice,
     getOptionPrices,
     getUnderlyingPrices,
+    getAIForecast,
+    insertOrReplaceAIForecast,
   };
 }
 
@@ -679,5 +745,9 @@ export const getOptionProjection      = _instance.getOptionProjection.bind(_inst
 export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
 export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
 export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
+
+// AI Forecasts
+export const getAIForecast         = _instance.getAIForecast.bind(_instance);
+export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
 
 export default _instance.db;

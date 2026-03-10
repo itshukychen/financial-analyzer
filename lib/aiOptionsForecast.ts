@@ -174,8 +174,8 @@ function validateAnalysis(analysis: AIOptionsForecast, context: OptionAnalysisCo
   }
 }
 
-function isCacheFresh(createdAt: string): boolean {
-  const cacheAge = Date.now() - new Date(createdAt).getTime();
+function isCacheFresh(createdAtTimestamp: number): boolean {
+  const cacheAge = Date.now() - createdAtTimestamp * 1000; // Convert from Unix seconds to milliseconds
   const fourHours = 4 * 60 * 60 * 1000;
   return cacheAge < fourHours;
 }

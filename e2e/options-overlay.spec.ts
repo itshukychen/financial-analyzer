@@ -164,14 +164,17 @@ test.describe('Options Overlay Feature', () => {
     await page.locator('text=S&P 500').first().click();
     await page.locator('button:has-text("+ Add Overlay")').click();
 
-    // Wait for and click Apply button
+    // Set up response listener BEFORE clicking Apply
+    const apiCallPromise = page.waitForResponse((response) =>
+      response.url().includes('/api/market/options-overlay')
+    );
+
+    // Click Apply button
     const applyButton = page.locator('button:has-text("Apply")');
     await applyButton.click();
 
-    // Overlay API should be called
-    const apiCall = await page.waitForResponse((response) =>
-      response.url().includes('/api/market/options-overlay')
-    );
+    // Wait for the API response
+    const apiCall = await apiCallPromise;
     expect(apiCall.status()).toBe(200);
 
     // Panel should close after successful apply
@@ -308,13 +311,16 @@ test.describe('Options Overlay Feature', () => {
     const typeSelect = page.locator('select');
     await typeSelect.selectOption('put');
 
+    // Set up response listener BEFORE clicking Apply
+    const apiCallPromise = page.waitForResponse((response) =>
+      response.url().includes('/api/market/options-overlay')
+    );
+
     // Apply
     await page.locator('button:has-text("Apply")').click();
 
     // API call should include optionType=put
-    const apiCall = await page.waitForResponse((response) =>
-      response.url().includes('/api/market/options-overlay')
-    );
+    const apiCall = await apiCallPromise;
     expect(apiCall.url()).toContain('optionType=put');
   });
 });

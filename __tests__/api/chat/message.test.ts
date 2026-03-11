@@ -3,30 +3,36 @@ import { NextRequest } from 'next/server';
 
 // ─── Mocks (hoisted before imports) ───────────────────────────────────────────
 
-// Mock better-sqlite3 so no real database is opened
-const mockStatement = {
-  run: vi.fn().mockReturnValue({ changes: 1 }),
-  get: vi.fn().mockReturnValue(undefined),
-  all: vi.fn().mockReturnValue([]),
-};
+// Use vi.hoisted so these are available inside vi.mock() factory functions,
+// which are hoisted to the top of the file before variable declarations.
+const { mockStatement, mockDb, mockStream, mockClaudeEvents } = vi.hoisted(() => {
+  const mockStatement = {
+    run: vi.fn().mockReturnValue({ changes: 1 }),
+    get: vi.fn().mockReturnValue(undefined),
+    all: vi.fn().mockReturnValue([]),
+  };
+  const mockDb = {
+    exec: vi.fn(),
+    prepare: vi.fn().mockReturnValue(mockStatement),
+  };
+  const mockClaudeEvents = [
+    { type: 'message_start', message: { usage: { input_tokens: 10 } } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello ' } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'world!' } },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 5 } },
+  ];
+  const mockStream = vi.fn();
+  return { mockStatement, mockDb, mockStream, mockClaudeEvents };
+});
 
-const mockDb = {
-  exec: vi.fn(),
-  prepare: vi.fn().mockReturnValue(mockStatement),
-};
-
-vi.mock('better-sqlite3', () => ({
-  default: vi.fn().mockReturnValue(mockDb),
-}));
+vi.mock('better-sqlite3', () => {
+  // Must use a regular function (not arrow) so it can be used as a constructor
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const MockDatabase = function () { return mockDb; } as any;
+  return { default: vi.fn().mockImplementation(MockDatabase) };
+});
 
 // Mock Anthropic SDK with a streaming async generator
-const mockClaudeEvents = [
-  { type: 'message_start', message: { usage: { input_tokens: 10 } } },
-  { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello ' } },
-  { type: 'content_block_delta', delta: { type: 'text_delta', text: 'world!' } },
-  { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 5 } },
-];
-
 const mockClaudeStream = {
   [Symbol.asyncIterator]: async function* () {
     for (const event of mockClaudeEvents) {
@@ -35,16 +41,19 @@ const mockClaudeStream = {
   },
 };
 
-const mockStream = vi.fn().mockReturnValue(mockClaudeStream);
-
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    messages: { stream: mockStream },
-  })),
-}));
+vi.mock('@anthropic-ai/sdk', () => {
+  // Must use a regular function (not arrow) so it can be used as a constructor
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const MockAnthropic = function () { return { messages: { stream: mockStream } }; } as any;
+  return { default: vi.fn().mockImplementation(MockAnthropic) };
+});
 
 // Mock fs to avoid actual filesystem operations in tests
 vi.mock('fs', () => ({
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+  },
   existsSync: vi.fn().mockReturnValue(true),
   mkdirSync: vi.fn(),
 }));

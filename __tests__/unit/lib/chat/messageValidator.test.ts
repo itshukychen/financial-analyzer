@@ -148,8 +148,14 @@ describe('generateTitle()', () => {
   it('truncates at word boundary when possible', () => {
     const msg = 'Tell me about the financial performance metrics for this quarter';
     const title = generateTitle(msg);
-    // Should not cut in the middle of a word
-    expect(title).not.toMatch(/\w\.\.\./); // no word immediately before ...
+    // Should be shorter than original (input > 60 chars)
+    expect(title.length).toBeLessThanOrEqual(63);
+    // If truncated with '...', the cut must be at a space (word boundary)
+    if (title.endsWith('...')) {
+      const body = title.slice(0, -3);
+      // Next character in original after the body should be a space
+      expect(msg[body.length]).toBe(' ');
+    }
   });
 
   it('handles exactly 60 char message without truncation', () => {

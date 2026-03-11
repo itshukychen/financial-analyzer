@@ -48,7 +48,7 @@ function mockFetch(results: typeof MOCK_RESULTS = MOCK_RESULTS) {
 }
 
 beforeEach(() => {
-  vi.useFakeTimers();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
 afterEach(() => {

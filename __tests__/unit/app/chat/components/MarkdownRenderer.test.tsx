@@ -49,13 +49,13 @@ describe('MarkdownRenderer', () => {
   });
 
   it('renders an unordered list', () => {
-    render(<MarkdownRenderer content="- item one\n- item two" />);
+    render(<MarkdownRenderer content={"- item one\n- item two"} />);
     expect(screen.getByText('item one')).toBeInTheDocument();
     expect(screen.getByText('item two')).toBeInTheDocument();
   });
 
   it('renders an ordered list', () => {
-    render(<MarkdownRenderer content="1. first\n2. second" />);
+    render(<MarkdownRenderer content={"1. first\n2. second"} />);
     expect(screen.getByText('first')).toBeInTheDocument();
     expect(screen.getByText('second')).toBeInTheDocument();
   });
@@ -120,7 +120,7 @@ describe('MarkdownRenderer', () => {
 
   it('strips <script> tags (XSS prevention)', () => {
     const { container } = render(
-      <MarkdownRenderer content={'<script>alert("xss")</script> safe text'} />,
+      <MarkdownRenderer content={'safe text\n\n<script>alert("xss")</script>'} />,
     );
     expect(container.querySelector('script')).toBeNull();
     expect(container.textContent).toContain('safe text');

@@ -174,7 +174,7 @@ describe('ConversationList — interactions', () => {
     render(<ConversationList conversations={mockConversations} currentId={null} onSelect={noop} />);
     const item = screen.getByTestId('conversation-item-conv-1');
     fireEvent.mouseEnter(item);
-    expect(item.style.background).toContain('rgba(255,255,255,0.05)');
+    expect(item.style.background.replace(/,\s+/g, ',')).toContain('rgba(255,255,255,0.05)');
   });
 
   it('resets background on mouseleave', () => {
@@ -189,7 +189,7 @@ describe('ConversationList — interactions', () => {
     render(<ConversationList conversations={mockConversations} currentId="conv-1" onSelect={noop} />);
     const item = screen.getByTestId('conversation-item-conv-1');
     // Active background should be the accent tint, not hover color
-    expect(item.style.background).toContain('rgba(79,142,247,0.08)');
+    expect(item.style.background.replace(/,\s+/g, ',')).toContain('rgba(79,142,247,0.08)');
   });
 });
 

@@ -43,3 +43,7 @@ data/
 
 # Agent docs — PRDs are private, designs are committed
 docs/prd-*.md
+
+# CI screenshot pipeline outputs (generated artifacts)
+.ci-screenshots/output/
+.ci-screenshots/baselines/

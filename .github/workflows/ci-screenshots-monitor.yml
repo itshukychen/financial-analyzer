@@ -1,0 +1,86 @@
+name: Screenshot Pipeline Monitoring
+
+on:
+  # Run weekly to check pipeline health
+  schedule:
+    - cron: '0 9 * * 1'
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    name: Pipeline Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check baseline cache age
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            // List recent workflow runs for the ci-screenshots workflow
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-screenshots.yml',
+              per_page: 10,
+            });
+
+            const recent = runs.workflow_runs.slice(0, 10);
+            const failures = recent.filter(r => r.conclusion === 'failure').length;
+            const total = recent.length;
+            const successRate = total > 0 ? ((total - failures) / total * 100).toFixed(1) : 'N/A';
+
+            const avgDuration = recent
+              .filter(r => r.run_started_at && r.updated_at)
+              .map(r => (new Date(r.updated_at).getTime() - new Date(r.run_started_at).getTime()) / 1000 / 60)
+              .reduce((a, b, _, arr) => a + b / arr.length, 0)
+              .toFixed(1);
+
+            const report = [
+              '## CI Screenshot Pipeline — Weekly Health Report',
+              '',
+              `| Metric | Value |`,
+              `|--------|-------|`,
+              `| Success rate (last ${total} runs) | ${successRate}% |`,
+              `| Avg duration | ${avgDuration} min |`,
+              `| Failures | ${failures} |`,
+              '',
+              '### Recent Runs',
+              ...recent.map(r =>
+                `- ${r.conclusion === 'success' ? '✅' : r.conclusion === 'failure' ? '❌' : '⚠️'} ` +
+                `[${r.display_title}](${r.html_url}) — ${r.conclusion ?? 'in progress'}`
+              ),
+            ].join('\n');
+
+            console.log(report);
+
+            // Create an issue if failure rate > 20%
+            const failureRate = total > 0 ? failures / total : 0;
+            if (failureRate > 0.2) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[ci-screenshots] High failure rate: ${failures}/${total} runs failed`,
+                body: `${report}\n\nPlease investigate the CI screenshot pipeline.`,
+                labels: ['ci', 'bug'],
+              });
+            }

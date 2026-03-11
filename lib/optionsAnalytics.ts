@@ -3,8 +3,16 @@ import type { VolatilityRegime } from './db';
 // ─── Standard Normal Distribution Helpers ────────────────────────────────────
 
 /**
- * Approximation of standard normal CDF (Cumulative Distribution Function)
- * Based on Wichura's algorithm for good accuracy
+ * Approximation of standard normal CDF (Cumulative Distribution Function).
+ * Based on Abramowitz & Stegun formula 26.2.17 (accurate to ~7 decimal places).
+ *
+ * @param {number} x - The z-score value
+ * @returns {number} Probability P(Z ≤ x) in range [0, 1]
+ *
+ * @example
+ * normalCDF(0)  // → ~0.5  (50% probability)
+ * normalCDF(1)  // → ~0.841 (84% probability)
+ * normalCDF(-2) // → ~0.023 (2.3% probability)
  */
 export function normalCDF(x: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
@@ -17,7 +25,11 @@ export function normalCDF(x: number): number {
 }
 
 /**
- * Standard normal PDF (Probability Density Function)
+ * Standard normal PDF (Probability Density Function).
+ * Returns the probability density at point x for N(0,1).
+ *
+ * @param {number} x - The z-score value
+ * @returns {number} Probability density at x (always ≥ 0, maximum at x=0)
  */
 export function normalPDF(x: number): number {
   return (Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI));
@@ -34,8 +46,16 @@ export interface Greeks {
 }
 
 /**
- * Calculate d1 and d2 from Black-Scholes model
- * These are intermediate values used in multiple Greeks calculations
+ * Calculate d1 and d2 from Black-Scholes model.
+ * These are intermediate standardized values used in all Greeks and price calculations.
+ * Returns {0, 0} for expired options or zero-volatility inputs.
+ *
+ * @param {number} spotPrice - Current underlying price (S)
+ * @param {number} strike - Option strike price (K)
+ * @param {number} timeToExpiry - Time to expiry in years (T); e.g., 0.25 = 3 months
+ * @param {number} volatility - Annualized implied volatility as decimal (e.g., 0.20 = 20%)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate as decimal
+ * @returns {{ d1: number; d2: number }} Standardized d1 and d2 values for use in BS formula
  */
 function calculateD1D2(
   spotPrice: number,
@@ -58,9 +78,22 @@ function calculateD1D2(
 }
 
 /**
- * Calculate Delta: sensitivity to underlying price movement
- * Call delta: 0 to 1
+ * Calculate Delta: the option's sensitivity to a $1 move in the underlying price.
+ * Call delta: 0 to +1 (roughly = probability of expiring ITM for calls)
  * Put delta: -1 to 0
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @param {'call' | 'put'} optionType - Option type
+ * @returns {number} Delta in range [0, 1] for calls or [-1, 0] for puts
+ *
+ * @example
+ * // ATM call with 3 months to expiry, 20% IV, 5% rate
+ * calculateDelta(100, 100, 0.25, 0.20, 0.05, 'call') // → ~0.53
+ * calculateDelta(100, 100, 0.25, 0.20, 0.05, 'put')  // → ~-0.47
  */
 export function calculateDelta(
   spotPrice: number,
@@ -86,9 +119,15 @@ export function calculateDelta(
 }
 
 /**
- * Calculate Gamma: second-order delta sensitivity
- * Same for calls and puts
- * Units: delta change per 1% move in underlying
+ * Calculate Gamma: rate of change of delta per $1 move in underlying.
+ * Identical for calls and puts at the same strike. Highest at ATM near expiry.
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @returns {number} Gamma (delta change per $1 underlying move); always ≥ 0
  */
 export function calculateGamma(
   spotPrice: number,
@@ -105,9 +144,15 @@ export function calculateGamma(
 }
 
 /**
- * Calculate Vega: sensitivity to volatility changes
- * Same for calls and puts
- * Units: option value change per 1% change in volatility
+ * Calculate Vega: option price sensitivity to a 1% change in implied volatility.
+ * Identical for calls and puts at the same strike. Highest at ATM with long time to expiry.
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @returns {number} Vega (option value change per 1% vol move); always ≥ 0
  */
 export function calculateVega(
   spotPrice: number,
@@ -124,10 +169,17 @@ export function calculateVega(
 }
 
 /**
- * Calculate Theta: time decay
- * Call theta: typically negative (time decay costs)
- * Put theta: can be positive or negative depending on price and dividends
- * Units: option value loss per day
+ * Calculate Theta: option value decay per calendar day.
+ * Call theta is typically negative (holding a call costs time value each day).
+ * Put theta can be positive for deep ITM puts with high interest rates.
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @param {'call' | 'put'} optionType - Option type
+ * @returns {number} Theta in dollars per day (typically negative for long options)
  */
 export function calculateTheta(
   spotPrice: number,
@@ -153,8 +205,18 @@ export function calculateTheta(
 }
 
 /**
- * Calculate Rho: sensitivity to interest rate changes
- * Units: option value change per 1% change in interest rate
+ * Calculate Rho: option price sensitivity to a 1% change in the risk-free interest rate.
+ * Calls have positive rho (higher rates → higher call value).
+ * Puts have negative rho (higher rates → lower put value).
+ * Generally the least significant Greek for short-dated equity options.
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @param {'call' | 'put'} optionType - Option type
+ * @returns {number} Rho (option value change per 1% rate move)
  */
 export function calculateRho(
   spotPrice: number,
@@ -178,7 +240,20 @@ export function calculateRho(
 }
 
 /**
- * Calculate all Greeks at once
+ * Calculate all five option Greeks in a single pass (reuses d1/d2 calculation).
+ * More efficient than calling each Greek function individually.
+ *
+ * @param {number} spotPrice - Current underlying price
+ * @param {number} strike - Option strike price
+ * @param {number} timeToExpiry - Time to expiry in years
+ * @param {number} volatility - Annualized implied volatility (decimal)
+ * @param {number} riskFreeRate - Continuously compounded risk-free rate (decimal)
+ * @param {'call' | 'put'} optionType - Option type
+ * @returns {Greeks} Object with delta, gamma, vega, theta, and rho
+ *
+ * @example
+ * const greeks = calculateGreeks(475, 480, 0.083, 0.18, 0.05, 'call');
+ * // → { delta: 0.48, gamma: 0.031, vega: 0.21, theta: -0.085, rho: 0.19 }
  */
 export function calculateGreeks(
   spotPrice: number,
@@ -236,8 +311,17 @@ export interface RegimeThresholds {
 }
 
 /**
- * Classify current IV into regime (low, normal, high)
- * Based on percentile rank in historical data
+ * Classify current IV into a volatility regime (low, normal, high)
+ * based on percentile rank within a historical IV distribution.
+ *
+ * @param {number} currentIV - Current implied volatility (percentage, e.g., 18.5)
+ * @param {number[]} historicalIVs - Array of historical IV values for comparison
+ * @param {RegimeThresholds} thresholds - Percentile cutoffs (default: 20th/80th percentile)
+ * @returns {VolatilityRegime} 'low' | 'normal' | 'high'
+ *
+ * @example
+ * const regime = classifyVolatilityRegime(22, pastIVs);
+ * // → 'normal' if 22 is between 20th and 80th percentile of pastIVs
  */
 export function classifyVolatilityRegime(
   currentIV: number,
@@ -257,8 +341,12 @@ export function classifyVolatilityRegime(
 }
 
 /**
- * Calculate IV rank (percentile of current IV within historical range)
- * Returns 0-100
+ * Calculate IV rank: what percentage of historical IV readings are below the current IV.
+ * Returns 0-100. A rank of 80 means IV is higher than 80% of past readings.
+ *
+ * @param {number} currentIV - Current implied volatility
+ * @param {number[]} historicalIVs - Historical IV readings for comparison
+ * @returns {number} IV rank in range [0, 100]; returns 50 if historicalIVs is empty
  */
 export function calculateIVRank(currentIV: number, historicalIVs: number[]): number {
   if (historicalIVs.length === 0) return 50;

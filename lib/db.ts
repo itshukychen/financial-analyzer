@@ -460,6 +460,22 @@ function migrate(db: Database.Database): void {
   }
 }
 
+/**
+ * Create a new database instance with the full application schema.
+ * Automatically applies migrations from the current schema version.
+ *
+ * Use ':memory:' as the path for in-memory databases in tests:
+ * @example
+ * // Production (module singleton, see bottom of file)
+ * const instance = createDb('/path/to/reports.db');
+ *
+ * // Tests — fully isolated, no file created
+ * const instance = createDb(':memory:');
+ * instance.insertOrReplaceReport('2026-03-11', 'eod', {}, {}, 'model');
+ *
+ * @param {string} dbPath - File path for SQLite database, or ':memory:' for in-memory
+ * @returns {DbInstance} Database instance with all CRUD methods bound
+ */
 export function createDb(dbPath: string): DbInstance {
   const db = new Database(dbPath);
 
@@ -473,6 +489,17 @@ export function createDb(dbPath: string): DbInstance {
 
   // ─── Report CRUD ────────────────────────────────────────────────────────────
 
+  /**
+   * Insert a new report or replace an existing one for the same date+period.
+   * Uses SQLite's INSERT OR REPLACE semantics — no separate update needed.
+   *
+   * @param {string} date - Report date in YYYY-MM-DD format
+   * @param {ReportPeriod} period - Time of day: 'morning' | 'midday' | 'eod'
+   * @param {object} tickerData - Market data snapshot (will be JSON.stringify'd)
+   * @param {object} reportJson - Claude's analysis output (will be JSON.stringify'd)
+   * @param {string} model - Model identifier (e.g., 'claude-sonnet-4-5')
+   * @returns {ReportRow} The inserted/updated row, freshly fetched from DB
+   */
   function insertOrReplaceReport(
     date: string,
     period: ReportPeriod,
@@ -494,12 +521,25 @@ export function createDb(dbPath: string): DbInstance {
     return db.prepare('SELECT * FROM reports WHERE date = ? AND period = ?').get(date, period) as ReportRow;
   }
 
+  /**
+   * Get the most recently generated report across all dates and periods.
+   *
+   * @returns {ReportRow | null} Most recent report row, or null if database is empty
+   */
   function getLatestReport(): ReportRow | null {
     return (db.prepare(
       'SELECT * FROM reports ORDER BY generated_at DESC, id DESC LIMIT 1'
     ).get() as ReportRow) ?? null;
   }
 
+  /**
+   * Get a specific report by date, optionally filtered by period.
+   * If no period is specified, returns the most recently generated report for that date.
+   *
+   * @param {string} date - Report date in YYYY-MM-DD format
+   * @param {ReportPeriod} [period] - Optional period filter: 'morning' | 'midday' | 'eod'
+   * @returns {ReportRow | null} Matching report row, or null if not found
+   */
   function getReportByDate(date: string, period?: ReportPeriod): ReportRow | null {
     if (period) {
       return (db.prepare(
@@ -512,6 +552,13 @@ export function createDb(dbPath: string): DbInstance {
     ).get(date) as ReportRow) ?? null;
   }
 
+  /**
+   * List reports summary (without large ticker_data and report_json fields).
+   * Ordered by most recently generated first.
+   *
+   * @param {number} [limit=50] - Maximum number of reports to return
+   * @returns {Array} Array of report summaries (id, date, period, generated_at, model)
+   */
   function listReports(limit = 50): Pick<ReportRow, 'id' | 'date' | 'period' | 'generated_at' | 'model'>[] {
     return db.prepare(
       'SELECT id, date, period, generated_at, model FROM reports ORDER BY generated_at DESC, id DESC LIMIT ?',
@@ -653,6 +700,19 @@ export function createDb(dbPath: string): DbInstance {
     ).get(price.ticker, price.strike, price.expiry_date, price.option_type, price.timestamp) as OptionPrice;
   }
 
+  /**
+   * Retrieve option price history for a specific contract within a time range.
+   * Results are ordered by timestamp ascending (oldest first).
+   * Used by the chart overlay endpoint to render option price alongside underlying.
+   *
+   * @param {string} ticker - Underlying ticker symbol (e.g., 'SPY')
+   * @param {number} strike - Option strike price (e.g., 550.0)
+   * @param {string} expiryDate - Contract expiry date in YYYY-MM-DD format
+   * @param {'call' | 'put'} optionType - Option type
+   * @param {number} startTimestamp - Start of time range (Unix epoch seconds)
+   * @param {number} endTimestamp - End of time range (Unix epoch seconds)
+   * @returns {OptionPrice[]} Array of option price records in chronological order
+   */
   function getOptionPrices(
     ticker: string,
     strike: number,

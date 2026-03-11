@@ -1,0 +1,19 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^https://query1.finance.yahoo.com"
+    },
+    {
+      "pattern": "^https://fred.stlouisfed.org"
+    },
+    {
+      "pattern": "^https://production.dataviz.cnn.io"
+    }
+  ],
+  "aliveStatusCodes": [200, 206],
+  "timeout": "10s",
+  "retryCount": 2
+}

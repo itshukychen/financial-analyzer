@@ -1,0 +1,50 @@
+name: docs-check
+
+on:
+  pull_request:
+    paths:
+      - '**.md'
+      - 'scripts/validate-docs.sh'
+      - '.github/workflows/docs-check.yml'
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run documentation validator
+        run: bash scripts/validate-docs.sh
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'yes'
+          config-file: '.github/mlc-config.json'
+          folder-path: '.'
+          file-extension: '.md'
+        continue-on-error: true
+        # continue-on-error: true because external links may be temporarily down in CI;
+        # internal link validation is handled by validate-docs.sh (which is strict).
+
+      - name: Post results as PR comment on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Documentation Check Failed\n\nThe documentation validation found issues. Please run \`bash scripts/validate-docs.sh\` locally to see the errors.\n\nCommon fixes:\n- Check for broken internal links (e.g., \`[text](./MISSING.md)\`)\n- Ensure all code blocks have matching opening and closing \`\`\`\n- Add Table of Contents to long documents\n- Fix bash syntax errors in code examples`
+            })

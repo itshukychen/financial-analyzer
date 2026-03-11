@@ -35,12 +35,12 @@ const CHAT_SCHEMA_V5 = `
   CREATE INDEX IF NOT EXISTS idx_chat_messages_conv_created
     ON chat_messages(conversation_id, created_at ASC);
 
+  -- Regular (non-external-content) FTS5 table: stores its own copy of content.
+  -- This avoids issues with external content tables and CASCADE deletes not firing triggers.
   CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
     content,
     conversation_id UNINDEXED,
-    message_id      UNINDEXED,
-    content='chat_messages',
-    content_rowid='rowid'
+    message_id      UNINDEXED
   );
 
   CREATE TRIGGER IF NOT EXISTS chat_messages_fts_ai
@@ -53,15 +53,13 @@ const CHAT_SCHEMA_V5 = `
   CREATE TRIGGER IF NOT EXISTS chat_messages_fts_ad
     AFTER DELETE ON chat_messages
   BEGIN
-    INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content, conversation_id, message_id)
-    VALUES ('delete', old.rowid, old.content, old.conversation_id, old.id);
+    DELETE FROM chat_messages_fts WHERE rowid = old.rowid;
   END;
 
   CREATE TRIGGER IF NOT EXISTS chat_messages_fts_au
     AFTER UPDATE OF content ON chat_messages
   BEGIN
-    INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content, conversation_id, message_id)
-    VALUES ('delete', old.rowid, old.content, old.conversation_id, old.id);
+    DELETE FROM chat_messages_fts WHERE rowid = old.rowid;
     INSERT INTO chat_messages_fts(rowid, content, conversation_id, message_id)
     VALUES (new.rowid, new.content, new.conversation_id, new.id);
   END;
@@ -800,6 +798,8 @@ export function createDb(dbPath: string): DbInstance {
   }
 
   function deleteConversation(id: string): void {
+    // Delete messages first so the FTS triggers fire (SQLite CASCADE does not fire triggers).
+    db.prepare('DELETE FROM chat_messages WHERE conversation_id = ?').run(id);
     db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
   }
 
@@ -846,15 +846,28 @@ export function createDb(dbPath: string): DbInstance {
     const offset = options.offset ?? 0;
     const start  = Date.now();
 
+    // Normalize the query: strip FTS5 special chars so user input doesn't break the parser.
+    // Hyphens, quotes, +, *, ^ and column-specifier : are all treated as word separators.
+    const normalizedQuery = query
+      .replace(/["\-+*^:]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter((w) => w.length > 0)
+      .join(' ');
+
+    if (!normalizedQuery) {
+      return { rows: [], total: 0, hasMore: false, executionTimeMs: Date.now() - start };
+    }
+
     const baseWhere = options.conversationId
       ? 'AND m.conversation_id = ?'
       : '';
     const params: (string | number)[] = options.conversationId
-      ? [query, options.conversationId, limit, offset]
-      : [query, limit, offset];
+      ? [normalizedQuery, options.conversationId, limit, offset]
+      : [normalizedQuery, limit, offset];
     const countParams: (string | number)[] = options.conversationId
-      ? [query, options.conversationId]
-      : [query];
+      ? [normalizedQuery, options.conversationId]
+      : [normalizedQuery];
 
     const total = (db.prepare(`
       SELECT COUNT(*) as cnt

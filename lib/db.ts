@@ -2,6 +2,71 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
+// ─── Schema (v5 — adds conversations + chat_messages with FTS5) ──────────────
+// NOTE: better-sqlite3 is synchronous and single-threaded by design.
+// Connection pooling is NOT required — a single shared instance is sufficient.
+// The module-level singleton below handles all production access.
+
+const CHAT_SCHEMA_V5 = `
+  CREATE TABLE IF NOT EXISTS conversations (
+    id            TEXT    PRIMARY KEY,
+    user_id       TEXT    NOT NULL DEFAULT 'default',
+    title         TEXT    NOT NULL DEFAULT 'New Conversation',
+    message_count INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    updated_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_conversations_user_updated
+    ON conversations(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_conversations_user_created
+    ON conversations(user_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id              TEXT    PRIMARY KEY,
+    conversation_id TEXT    NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role            TEXT    NOT NULL CHECK(role IN ('user', 'assistant')),
+    content         TEXT    NOT NULL,
+    tokens_used     INTEGER,
+    metadata        TEXT,
+    created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_id
+    ON chat_messages(conversation_id);
+  CREATE INDEX IF NOT EXISTS idx_chat_messages_conv_created
+    ON chat_messages(conversation_id, created_at ASC);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
+    content,
+    conversation_id UNINDEXED,
+    message_id      UNINDEXED,
+    content='chat_messages',
+    content_rowid='rowid'
+  );
+
+  CREATE TRIGGER IF NOT EXISTS chat_messages_fts_ai
+    AFTER INSERT ON chat_messages
+  BEGIN
+    INSERT INTO chat_messages_fts(rowid, content, conversation_id, message_id)
+    VALUES (new.rowid, new.content, new.conversation_id, new.id);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS chat_messages_fts_ad
+    AFTER DELETE ON chat_messages
+  BEGIN
+    INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content, conversation_id, message_id)
+    VALUES ('delete', old.rowid, old.content, old.conversation_id, old.id);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS chat_messages_fts_au
+    AFTER UPDATE OF content ON chat_messages
+  BEGIN
+    INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content, conversation_id, message_id)
+    VALUES ('delete', old.rowid, old.content, old.conversation_id, old.id);
+    INSERT INTO chat_messages_fts(rowid, content, conversation_id, message_id)
+    VALUES (new.rowid, new.content, new.conversation_id, new.id);
+  END;
+`;
+
 // ─── Schema (v4 — adds option prices for chart overlay) ──────────────────────
 
 const SCHEMA_V4 = `
@@ -91,6 +156,7 @@ const SCHEMA_V4 = `
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SCHEMA_V3 = `
   CREATE TABLE IF NOT EXISTS reports (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +222,7 @@ const SCHEMA_V3 = `
     ON option_projections(date DESC, ticker);
 `;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SCHEMA_V2 = `
   CREATE TABLE IF NOT EXISTS reports (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -251,6 +318,48 @@ export interface OptionPrice {
   created_at: number;
 }
 
+// ─── Chat types (v5) ─────────────────────────────────────────────────────────
+
+export interface ConversationRow {
+  id:            string;
+  user_id:       string;
+  title:         string;
+  message_count: number;
+  created_at:    number;
+  updated_at:    number;
+}
+
+export interface ChatMessageRow {
+  id:              string;
+  conversation_id: string;
+  role:            'user' | 'assistant';
+  content:         string;
+  tokens_used:     number | null;
+  metadata:        string | null;
+  created_at:      number;
+}
+
+export interface ChatMessageSearchResult {
+  message_id:         string;
+  conversation_id:    string;
+  conversation_title: string;
+  role:               string;
+  snippet:            string;
+  created_at:         number;
+}
+
+export interface ConversationListOptions {
+  limit?:  number;
+  offset?: number;
+  sort?:   'created_at' | 'updated_at';
+}
+
+export interface PaginatedResult<T> {
+  rows:    T[];
+  total:   number;
+  hasMore: boolean;
+}
+
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
 export interface DbInstance {
@@ -270,6 +379,20 @@ export interface DbInstance {
   insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
   getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
   getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
+
+  // Chat (v5)
+  createConversation(userId?: string, title?: string): ConversationRow;
+  getConversation(id: string): ConversationRow | null;
+  listConversations(userId: string, options?: ConversationListOptions): PaginatedResult<ConversationRow>;
+  updateConversation(id: string, updates: { title?: string }): void;
+  deleteConversation(id: string): void;
+  incrementMessageCount(conversationId: string): void;
+  insertChatMessage(msg: Omit<ChatMessageRow, 'created_at'>): ChatMessageRow;
+  getChatMessages(conversationId: string): ChatMessageRow[];
+  searchChatMessages(
+    query: string,
+    options?: { limit?: number; offset?: number; conversationId?: string },
+  ): PaginatedResult<ChatMessageSearchResult> & { executionTimeMs: number };
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -282,12 +405,15 @@ function migrate(db: Database.Database): void {
   const hasOptionPrices = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='option_prices'"
   ).get();
-  
+  const hasConversations = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
+  ).get();
+
   // Migrate v1 → v2
   if (cols.includes('period')) {
     // v2 already or later
     if (hasOptionSnapshots) {
-      if (hasOptionPrices) return; // Already at v4
+      if (hasOptionPrices && hasConversations) return; // Already at v5
     }
   } else {
     // v1 table exists but lacks period — rebuild
@@ -386,19 +512,27 @@ function migrate(db: Database.Database): void {
         ask               REAL,
         volume            INTEGER,
         created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        
+
         UNIQUE(ticker, strike, expiry_date, option_type, timestamp)
       );
-      CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
+      CREATE INDEX IF NOT EXISTS idx_option_prices_lookup
         ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
-      CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+      CREATE INDEX IF NOT EXISTS idx_option_prices_expiry
         ON option_prices(expiry_date);
     `);
+  }
+
+  // Create v5 chat tables + FTS5 if they don't exist
+  if (!hasConversations) {
+    db.exec(CHAT_SCHEMA_V5);
   }
 }
 
 export function createDb(dbPath: string): DbInstance {
   const db = new Database(dbPath);
+
+  // Enable foreign key enforcement (required for ON DELETE CASCADE on chat_messages)
+  db.pragma('foreign_keys = ON');
 
   // Create table if brand new, then migrate if upgrading
   try {
@@ -619,6 +753,140 @@ export function createDb(dbPath: string): DbInstance {
     return [];
   }
 
+  // ─── Chat CRUD (v5) ──────────────────────────────────────────────────────────
+
+  function createConversation(userId = 'default', title = 'New Conversation'): ConversationRow {
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`
+      INSERT INTO conversations (id, user_id, title, message_count, created_at, updated_at)
+      VALUES (?, ?, ?, 0, ?, ?)
+    `).run(id, userId, title, now, now);
+    return db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as ConversationRow;
+  }
+
+  function getConversation(id: string): ConversationRow | null {
+    return (db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as ConversationRow) ?? null;
+  }
+
+  function listConversations(userId: string, options: ConversationListOptions = {}): PaginatedResult<ConversationRow> {
+    const limit  = Math.min(options.limit  ?? 20, 100);
+    const offset = options.offset ?? 0;
+    const sort   = options.sort === 'created_at' ? 'created_at' : 'updated_at';
+
+    const total = (db.prepare(
+      'SELECT COUNT(*) as cnt FROM conversations WHERE user_id = ?'
+    ).get(userId) as { cnt: number }).cnt;
+
+    const rows = db.prepare(`
+      SELECT * FROM conversations
+      WHERE user_id = ?
+      ORDER BY ${sort} DESC
+      LIMIT ? OFFSET ?
+    `).all(userId, limit, offset) as ConversationRow[];
+
+    return { rows, total, hasMore: offset + rows.length < total };
+  }
+
+  function updateConversation(id: string, updates: { title?: string }): void {
+    const now = Math.floor(Date.now() / 1000);
+    if (updates.title !== undefined) {
+      db.prepare(
+        'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?'
+      ).run(updates.title, now, id);
+    } else {
+      db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, id);
+    }
+  }
+
+  function deleteConversation(id: string): void {
+    db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
+  }
+
+  function incrementMessageCount(conversationId: string): void {
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`
+      UPDATE conversations
+      SET message_count = message_count + 1, updated_at = ?
+      WHERE id = ?
+    `).run(now, conversationId);
+  }
+
+  function insertChatMessage(msg: Omit<ChatMessageRow, 'created_at'>): ChatMessageRow {
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`
+      INSERT INTO chat_messages (id, conversation_id, role, content, tokens_used, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      msg.id,
+      msg.conversation_id,
+      msg.role,
+      msg.content,
+      msg.tokens_used ?? null,
+      msg.metadata ?? null,
+      now,
+    );
+    return db.prepare('SELECT * FROM chat_messages WHERE id = ?').get(msg.id) as ChatMessageRow;
+  }
+
+  function getChatMessages(conversationId: string): ChatMessageRow[] {
+    // Uses composite index idx_chat_messages_conv_created
+    return db.prepare(`
+      SELECT * FROM chat_messages
+      WHERE conversation_id = ?
+      ORDER BY created_at ASC
+    `).all(conversationId) as ChatMessageRow[];
+  }
+
+  function searchChatMessages(
+    query: string,
+    options: { limit?: number; offset?: number; conversationId?: string } = {},
+  ): PaginatedResult<ChatMessageSearchResult> & { executionTimeMs: number } {
+    const limit  = Math.min(options.limit  ?? 20, 100);
+    const offset = options.offset ?? 0;
+    const start  = Date.now();
+
+    const baseWhere = options.conversationId
+      ? 'AND m.conversation_id = ?'
+      : '';
+    const params: (string | number)[] = options.conversationId
+      ? [query, options.conversationId, limit, offset]
+      : [query, limit, offset];
+    const countParams: (string | number)[] = options.conversationId
+      ? [query, options.conversationId]
+      : [query];
+
+    const total = (db.prepare(`
+      SELECT COUNT(*) as cnt
+      FROM chat_messages_fts fts
+      JOIN chat_messages m ON m.rowid = fts.rowid
+      WHERE chat_messages_fts MATCH ? ${baseWhere}
+    `).get(...countParams) as { cnt: number }).cnt;
+
+    const rows = db.prepare(`
+      SELECT
+        m.id         AS message_id,
+        m.conversation_id,
+        c.title      AS conversation_title,
+        m.role,
+        SUBSTR(m.content, 1, 150) AS snippet,
+        m.created_at
+      FROM chat_messages_fts fts
+      JOIN chat_messages  m ON m.rowid = fts.rowid
+      JOIN conversations  c ON c.id    = m.conversation_id
+      WHERE chat_messages_fts MATCH ? ${baseWhere}
+      ORDER BY rank
+      LIMIT ? OFFSET ?
+    `).all(...params) as ChatMessageSearchResult[];
+
+    return {
+      rows,
+      total,
+      hasMore:         offset + rows.length < total,
+      executionTimeMs: Date.now() - start,
+    };
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
@@ -650,6 +918,16 @@ export function createDb(dbPath: string): DbInstance {
     insertOptionPrice,
     getOptionPrices,
     getUnderlyingPrices,
+    // Chat (v5)
+    createConversation,
+    getConversation,
+    listConversations,
+    updateConversation,
+    deleteConversation,
+    incrementMessageCount,
+    insertChatMessage,
+    getChatMessages,
+    searchChatMessages,
   };
 }
 
@@ -679,5 +957,16 @@ export const getOptionProjection      = _instance.getOptionProjection.bind(_inst
 export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
 export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
 export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
+
+// Chat (v5)
+export const createConversation    = _instance.createConversation.bind(_instance);
+export const getConversation       = _instance.getConversation.bind(_instance);
+export const listConversations     = _instance.listConversations.bind(_instance);
+export const updateConversation    = _instance.updateConversation.bind(_instance);
+export const deleteConversation    = _instance.deleteConversation.bind(_instance);
+export const incrementMessageCount = _instance.incrementMessageCount.bind(_instance);
+export const insertChatMessage     = _instance.insertChatMessage.bind(_instance);
+export const getChatMessages       = _instance.getChatMessages.bind(_instance);
+export const searchChatMessages    = _instance.searchChatMessages.bind(_instance);
 
 export default _instance.db;

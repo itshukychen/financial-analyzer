@@ -280,6 +280,14 @@ export interface OptionSnapshot {
   created_at:        number;
 }
 
+export interface AIForecastRow {
+  id:            number;
+  ticker:        string;
+  date:          string;
+  forecast_json: string;
+  created_at:    string;
+}
+
 export interface ProbabilityPoint {
   price:       number;
   probability: number;
@@ -391,6 +399,10 @@ export interface DbInstance {
     query: string,
     options?: { limit?: number; offset?: number; conversationId?: string },
   ): PaginatedResult<ChatMessageSearchResult> & { executionTimeMs: number };
+
+  // AI Forecasts (v6)
+  getAIForecast(ticker: string, date: string): AIForecastRow | null;
+  insertOrReplaceAIForecast(ticker: string, date: string, analysis: object): void;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -524,6 +536,20 @@ function migrate(db: Database.Database): void {
   if (!hasConversations) {
     db.exec(CHAT_SCHEMA_V5);
   }
+
+  // Create v6 AI forecasts table (idempotent — always safe to run)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_forecasts (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticker        TEXT    NOT NULL,
+      date          TEXT    NOT NULL,
+      forecast_json TEXT    NOT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(ticker, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_forecasts_ticker_date
+      ON ai_forecasts(ticker, date DESC);
+  `);
 }
 
 export function createDb(dbPath: string): DbInstance {
@@ -900,13 +926,31 @@ export function createDb(dbPath: string): DbInstance {
     };
   }
 
+  // ─── AI Forecast CRUD ────────────────────────────────────────────────────────
+
+  function getAIForecast(ticker: string, date: string): AIForecastRow | null {
+    return db.prepare(
+      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?'
+    ).get(ticker, date) as AIForecastRow | null;
+  }
+
+  function insertOrReplaceAIForecast(ticker: string, date: string, analysis: object): void {
+    db.prepare(`
+      INSERT INTO ai_forecasts (ticker, date, forecast_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(ticker, date) DO UPDATE SET
+        forecast_json = excluded.forecast_json,
+        created_at    = datetime('now')
+    `).run(ticker, date, JSON.stringify(analysis));
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
     return {
       ...raw,
       prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution as string) : [],
-    } as OptionSnapshot;
+    } as unknown as OptionSnapshot;
   }
 
   function parseOptionProjection(raw: Record<string, unknown>): OptionProjection {
@@ -914,7 +958,7 @@ export function createDb(dbPath: string): DbInstance {
       ...raw,
       prob_distribution: JSON.parse(raw.prob_distribution as string),
       key_levels: JSON.parse(raw.key_levels as string),
-    } as OptionProjection;
+    } as unknown as OptionProjection;
   }
 
   return {
@@ -941,6 +985,9 @@ export function createDb(dbPath: string): DbInstance {
     insertChatMessage,
     getChatMessages,
     searchChatMessages,
+    // AI Forecasts (v6)
+    getAIForecast,
+    insertOrReplaceAIForecast,
   };
 }
 
@@ -981,5 +1028,9 @@ export const incrementMessageCount = _instance.incrementMessageCount.bind(_insta
 export const insertChatMessage     = _instance.insertChatMessage.bind(_instance);
 export const getChatMessages       = _instance.getChatMessages.bind(_instance);
 export const searchChatMessages    = _instance.searchChatMessages.bind(_instance);
+
+// AI Forecasts (v6)
+export const getAIForecast            = _instance.getAIForecast.bind(_instance);
+export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
 
 export default _instance.db;

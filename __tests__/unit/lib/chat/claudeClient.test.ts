@@ -78,10 +78,9 @@ const {
 });
 
 vi.mock('@anthropic-ai/sdk', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MockAnthropic = function () {
     return { messages: { stream: mockStreamFn, create: mockCreateFn } };
-  } as any;
+  } as unknown as typeof import('@anthropic-ai/sdk').default;
   return {
     default: vi.fn().mockImplementation(MockAnthropic),
     AuthenticationError: MockAuthError,

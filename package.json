@@ -13,7 +13,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:all": "npm run test:coverage && npm run test:e2e",
-    "backfill:options": "tsx scripts/backfill-option-prices.ts"
+    "backfill:options": "tsx scripts/backfill-option-prices.ts",
+    "ci:screenshots": "tsx scripts/ci-screenshots/index.ts",
+    "ci:screenshots:local": "tsx scripts/ci-screenshots/index.ts --local"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -25,21 +27,32 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/handlebars": "^4.0.40",
     "@types/node": "^20",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sharp": "^0.31.1",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "handlebars": "^4.7.8",
     "jsdom": "^28.1.0",
     "msw": "^2.12.10",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.34.5",
+    "simple-git": "^3.33.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"

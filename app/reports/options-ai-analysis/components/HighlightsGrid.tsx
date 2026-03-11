@@ -1,6 +1,6 @@
 'use client';
 
-import { DataCard } from '@/components/ui/DataCard';
+import { DataCard } from '@/app/components/ui/DataCard';
 import type { Highlight } from '@/lib/types/options-ai';
 
 interface HighlightsGridProps {

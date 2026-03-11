@@ -168,7 +168,7 @@ describe('V6: Report generation from complete diff results', () => {
         { route: '/markets', viewport: 'desktop', currentPath: current1 },
         { route: '/watchlist', viewport: 'mobile', currentPath: current2 },
       ],
-      new Map([['markets:desktop', baseline1]]),
+      new Map([['/markets:desktop', baseline1]]),
       { diffDir }
     );
 

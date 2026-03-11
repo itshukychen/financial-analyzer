@@ -85,8 +85,19 @@ const SCHEMA_V4 = `
   );
   CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
     ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
-  CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+  CREATE INDEX IF NOT EXISTS idx_option_prices_expiry
     ON option_prices(expiry_date);
+
+  CREATE TABLE IF NOT EXISTS ai_forecasts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker        TEXT    NOT NULL,
+    date          TEXT    NOT NULL,
+    forecast_json TEXT    NOT NULL,
+    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(ticker, date)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup
+    ON ai_forecasts(ticker, date DESC);
 `;
 
 // ─── Schema (v3 — adds option snapshots and projections) ──────────────────────
@@ -253,23 +264,34 @@ export interface OptionPrice {
 
 // ─── Factory (used by tests with ':memory:') ──────────────────────────────────
 
+export interface AIForecastRow {
+  id: number;
+  ticker: string;
+  date: string;
+  forecast_json: string; // JSON string
+  created_at: string;   // ISO datetime string
+}
+
 export interface DbInstance {
   db: Database.Database;
   insertOrReplaceReport(date: string, period: ReportPeriod, tickerData: object, reportJson: object, model: string): ReportRow;
   getLatestReport(): ReportRow | null;
   getReportByDate(date: string, period?: ReportPeriod): ReportRow | null;
   listReports(limit?: number): Pick<ReportRow, 'id' | 'date' | 'period' | 'generated_at' | 'model'>[];
-  
+
   insertOptionSnapshot(snapshot: Omit<OptionSnapshot, 'id' | 'created_at'>): OptionSnapshot;
   getOptionSnapshot(date: string, ticker: string, expiry: string): OptionSnapshot | null;
   getLatestOptionSnapshot(ticker: string, expiry: string): OptionSnapshot | null;
-  
+
   insertOptionProjection(projection: Omit<OptionProjection, 'id' | 'created_at'>): OptionProjection;
   getOptionProjection(date: string, ticker: string, horizonDays: number): OptionProjection | null;
-  
+
   insertOptionPrice(price: Omit<OptionPrice, 'id' | 'created_at'>): OptionPrice;
   getOptionPrices(ticker: string, strike: number, expiryDate: string, optionType: 'call' | 'put', startTimestamp: number, endTimestamp: number): OptionPrice[];
   getUnderlyingPrices(ticker: string, startTimestamp: number, endTimestamp: number): Array<{ timestamp: number; price: number }>;
+
+  insertOrReplaceAIForecast(ticker: string, date: string, forecast: object): AIForecastRow;
+  getAIForecast(ticker: string, date: string): AIForecastRow | null;
 }
 
 // ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
@@ -386,15 +408,29 @@ function migrate(db: Database.Database): void {
         ask               REAL,
         volume            INTEGER,
         created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        
+
         UNIQUE(ticker, strike, expiry_date, option_type, timestamp)
       );
-      CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
+      CREATE INDEX IF NOT EXISTS idx_option_prices_lookup
         ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
-      CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+      CREATE INDEX IF NOT EXISTS idx_option_prices_expiry
         ON option_prices(expiry_date);
     `);
   }
+
+  // Always ensure ai_forecasts table exists (v5)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_forecasts (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticker        TEXT    NOT NULL,
+      date          TEXT    NOT NULL,
+      forecast_json TEXT    NOT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE(ticker, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup
+      ON ai_forecasts(ticker, date DESC);
+  `);
 }
 
 export function createDb(dbPath: string): DbInstance {
@@ -619,13 +655,32 @@ export function createDb(dbPath: string): DbInstance {
     return [];
   }
 
+  // ─── AI Forecast CRUD ────────────────────────────────────────────────────────
+
+  function insertOrReplaceAIForecast(ticker: string, date: string, forecast: object): AIForecastRow {
+    db.prepare(`
+      INSERT INTO ai_forecasts (ticker, date, forecast_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(ticker, date) DO UPDATE SET
+        forecast_json = excluded.forecast_json,
+        created_at    = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `).run(ticker, date, JSON.stringify(forecast));
+    return db.prepare('SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ?').get(ticker, date) as AIForecastRow;
+  }
+
+  function getAIForecast(ticker: string, date: string): AIForecastRow | null {
+    return (db.prepare(
+      'SELECT * FROM ai_forecasts WHERE ticker = ? AND date = ? ORDER BY created_at DESC LIMIT 1'
+    ).get(ticker, date) as AIForecastRow) ?? null;
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
     return {
       ...raw,
       prob_distribution: raw.prob_distribution ? JSON.parse(raw.prob_distribution as string) : [],
-    } as OptionSnapshot;
+    } as unknown as OptionSnapshot;
   }
 
   function parseOptionProjection(raw: Record<string, unknown>): OptionProjection {
@@ -633,7 +688,7 @@ export function createDb(dbPath: string): DbInstance {
       ...raw,
       prob_distribution: JSON.parse(raw.prob_distribution as string),
       key_levels: JSON.parse(raw.key_levels as string),
-    } as OptionProjection;
+    } as unknown as OptionProjection;
   }
 
   return {
@@ -650,6 +705,8 @@ export function createDb(dbPath: string): DbInstance {
     insertOptionPrice,
     getOptionPrices,
     getUnderlyingPrices,
+    insertOrReplaceAIForecast,
+    getAIForecast,
   };
 }
 
@@ -679,5 +736,9 @@ export const getOptionProjection      = _instance.getOptionProjection.bind(_inst
 export const insertOptionPrice     = _instance.insertOptionPrice.bind(_instance);
 export const getOptionPrices       = _instance.getOptionPrices.bind(_instance);
 export const getUnderlyingPrices   = _instance.getUnderlyingPrices.bind(_instance);
+
+// AI Forecasts
+export const insertOrReplaceAIForecast = _instance.insertOrReplaceAIForecast.bind(_instance);
+export const getAIForecast             = _instance.getAIForecast.bind(_instance);
 
 export default _instance.db;

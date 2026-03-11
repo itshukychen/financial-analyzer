@@ -36,6 +36,11 @@ export interface DiffAnalyzerOutput {
 export function classifyFile(filePath: string): FileCategory {
   const lower = filePath.toLowerCase();
 
+  // API routes (check before pages so pages/api/* is classified as api)
+  if (lower.includes('/api/') || lower.includes('app/api/') || lower.includes('pages/api/')) {
+    return 'api';
+  }
+
   // Pages: Next.js App Router page files
   if (/app\/.*page\.(tsx?|jsx?)$/.test(lower) || /pages\/.*\.(tsx?|jsx?)$/.test(lower)) {
     return 'page';
@@ -47,15 +52,7 @@ export function classifyFile(filePath: string): FileCategory {
     lower.includes('src/components') ||
     /\.(tsx?|jsx?)$/.test(lower)
   ) {
-    // But exclude API routes below
-    if (!lower.includes('/api/')) {
-      return 'component';
-    }
-  }
-
-  // API routes
-  if (lower.includes('/api/') || lower.includes('app/api/') || lower.includes('pages/api/')) {
-    return 'api';
+    return 'component';
   }
 
   // Styles
@@ -99,7 +96,7 @@ export async function analyzeDiff(
 
   for (const file of diffResult.files) {
     // simple-git returns binary files with `.binary = true`
-    const isBinary = (file as Record<string, unknown>).binary === true;
+    const isBinary = (file as unknown as Record<string, unknown>).binary === true;
 
     // Detect rename: file.file may be "old => new"
     let path = file.file;
@@ -113,10 +110,13 @@ export async function analyzeDiff(
         path = match[2].trim();
         changeType = 'renamed';
       }
-    } else if ((file as Record<string, unknown>).insertions === file.changes && file.deletions === 0) {
-      changeType = 'added';
-    } else if (file.insertions === 0 && (file as Record<string, unknown>).deletions === file.changes) {
-      changeType = 'deleted';
+    } else {
+      const f = file as unknown as Record<string, unknown>;
+      if (f.insertions === f.changes && f.deletions === 0) {
+        changeType = 'added';
+      } else if (f.insertions === 0 && f.deletions === f.changes) {
+        changeType = 'deleted';
+      }
     }
 
     const category = classifyFile(path);

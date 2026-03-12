@@ -120,6 +120,40 @@ test.describe('Dashboard', () => {
     await page.goto('/');
     await expect(page.getByTestId('ticker-price-CL=F')).toHaveText('—');
   });
+
+  test('AC-2.1: health badge renders in TopBar when health check passes', async ({ page }) => {
+    await page.goto('/');
+    const badge = page.getByTestId('health-badge');
+    await expect(badge).toBeVisible();
+  });
+
+  test('AC-2.2: health badge shows System OK tooltip on hover', async ({ page }) => {
+    await page.goto('/');
+    const badge = page.getByTestId('health-badge');
+    await expect(badge).toHaveAttribute('title', 'System OK');
+    // Verify tooltip is accessible via title attribute
+    const titleAttr = await badge.getAttribute('title');
+    expect(titleAttr).toBe('System OK');
+  });
+
+  test('AC-E.1: health badge does not render when API fails', async ({ page }) => {
+    // Mock health check to return 500 error
+    await page.route('**/api/health', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server error' }) })
+    );
+    await page.goto('/');
+    // Badge should not be visible when API fails
+    await expect(page.getByTestId('health-badge')).not.toBeVisible();
+  });
+
+  test('AC-E.1: health badge gracefully handles network errors', async ({ page }) => {
+    // Mock health check to reject
+    await page.route('**/api/health', (route) => route.abort());
+    await page.goto('/');
+    // Badge should not render or be hidden gracefully
+    const badge = page.getByTestId('health-badge');
+    await expect(badge).not.toBeVisible();
+  });
 });
 
 test.describe('Interactive Charts — modal open/close', () => {

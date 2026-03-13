@@ -132,7 +132,10 @@ export async function fetchAllMarketData(): Promise<MarketData> {
     fetchYahoo('^VIX').then(pts => { console.log('  ✅ ^VIX'); return pts; }),
     fetchYahoo('DX-Y.NYB').then(pts => { console.log('  ✅ DX-Y.NYB'); return pts; }),
     fetchYahoo('^TNX').then(pts => { console.log('  ✅ ^TNX'); return pts; }),
-    fetchFRED('DGS2').then(pts => { console.log('  ✅ DGS2'); return pts; }),
+    fetchFRED('DGS2').then(pts => { console.log('  ✅ DGS2'); return pts; }).catch(err => {
+      console.warn(`  ⚠️  DGS2 fetch failed: ${err instanceof Error ? err.message : err} — using fallback`);
+      return [] as DataPoint[];
+    }),
     fetchYahoo('CL=F').then(pts => { console.log('  ✅ CL=F'); return pts; }).catch(err => {
       console.warn(`  ⚠️  CL=F fetch failed: ${err instanceof Error ? err.message : err} — using fallback`);
       return [] as DataPoint[];
@@ -148,7 +151,7 @@ export async function fetchAllMarketData(): Promise<MarketData> {
     vix:      toInstrument(vixPts),
     dxy:      toInstrument(dxyPts),
     yield10y: toInstrument(yield10yPts),
-    yield2y:  toInstrument(yield2yPts),
+    yield2y:  yield2yPts.length > 0 ? toInstrument(yield2yPts) : fallbackInstrument,
     wti:      wtiPts.length > 0 ? toInstrument(wtiPts) : fallbackInstrument,
     brent:    brentPts.length > 0 ? toInstrument(brentPts) : fallbackInstrument,
   };
@@ -185,11 +188,12 @@ export function buildPrompt(marketData: MarketData, today?: string): string {
   const dxy7dPct   = r1(((dxy.current - dxy.points[0].value) / dxy.points[0].value) * 100);
 
   // ── 2Y Treasury Yield ────────────────────────────────────────────────────
+  const y2Avail     = yield2y.current > 0;
   const y2Cur       = r1(yield2y.current);
-  const y2PrevClose = yield2y.current / (1 + yield2y.changePct / 100);
+  const y2PrevClose = yield2y.current > 0 ? yield2y.current / (1 + yield2y.changePct / 100) : 0;
   const y2_1dBp     = ri((yield2y.current - y2PrevClose) * 100);
-  const y2_7dStart  = r1(yield2y.points[0].value);
-  const y2_7dBp     = ri((yield2y.current - yield2y.points[0].value) * 100);
+  const y2_7dStart  = r1(yield2y.points[0]?.value ?? 0);
+  const y2_7dBp     = ri((yield2y.current - (yield2y.points[0]?.value ?? 0)) * 100);
 
   // ── 10Y Treasury Yield ───────────────────────────────────────────────────
   const y10Cur       = r1(yield10y.current);
@@ -199,11 +203,11 @@ export function buildPrompt(marketData: MarketData, today?: string): string {
   const y10_7dBp     = ri((yield10y.current - yield10y.points[0].value) * 100);
 
   // ── 2Y/10Y Spread ────────────────────────────────────────────────────────
-  const spreadBp         = ri((yield10y.current - yield2y.current) * 100);
-  const spread7dStartBp  = ri((yield10y.points[0].value - yield2y.points[0].value) * 100);
-  const spread7dChangeBp = ri(spreadBp - spread7dStartBp);
-  const spreadDirection  = spreadBp < 0 ? 'inverted' : 'normal';
-  const spreadTrend      = spread7dChangeBp >= 0 ? 'steepening' : 'flattening';
+  const spreadBp         = y2Avail ? ri((yield10y.current - yield2y.current) * 100) : NaN;
+  const spread7dStartBp  = y2Avail ? ri((yield10y.points[0].value - (yield2y.points[0]?.value ?? 0)) * 100) : NaN;
+  const spread7dChangeBp = y2Avail ? ri(spreadBp - spread7dStartBp) : NaN;
+  const spreadDirection  = y2Avail && spreadBp < 0 ? 'inverted' : 'normal';
+  const spreadTrend      = y2Avail && spread7dChangeBp >= 0 ? 'steepening' : 'flattening';
 
   // ── WTI Crude ────────────────────────────────────────────────────────────
   const wtiCur       = r1(wti.current);
@@ -239,9 +243,9 @@ DXY (US Dollar Index)
   7-day:        ${dxy7dStart} → ${dxyCur}  (${sign(dxy7dPct)}${dxy7dPct}%)
 
 2Y Treasury Yield
-  Current:      ${y2Cur}%
-  1-day:        ${sign(y2_1dBp)}${y2_1dBp}bp
-  7-day:        ${y2_7dStart}% → ${y2Cur}%  (${sign(y2_7dBp)}${y2_7dBp}bp)
+  Current:      ${y2Avail ? y2Cur + '%' : 'N/A'}
+  1-day:        ${y2Avail ? sign(y2_1dBp) + y2_1dBp + 'bp' : 'N/A'}
+  7-day:        ${y2Avail ? y2_7dStart + '% → ' + y2Cur + '%  (' + sign(y2_7dBp) + y2_7dBp + 'bp)' : 'N/A'}
 
 10Y Treasury Yield
   Current:      ${y10Cur}%
@@ -249,8 +253,8 @@ DXY (US Dollar Index)
   7-day:        ${y10_7dStart}% → ${y10Cur}%  (${sign(y10_7dBp)}${y10_7dBp}bp)
 
 2Y/10Y Spread
-  Current:      ${spreadBp}bp  (${spreadDirection})
-  7-day change: ${sign(spread7dChangeBp)}${spread7dChangeBp}bp  (${spreadTrend})
+  Current:      ${y2Avail ? spreadBp + 'bp  (' + spreadDirection + ')' : 'N/A'}
+  7-day change: ${y2Avail ? sign(spread7dChangeBp) + spread7dChangeBp + 'bp  (' + spreadTrend + ')' : 'N/A'}
 
 WTI Crude (CL=F)
   Current:      ${wtiAvail ? '$' + wtiCur : 'N/A'}

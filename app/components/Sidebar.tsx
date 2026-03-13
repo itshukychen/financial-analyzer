@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import { cn } from '@/app/lib/utils';
 
 const navItems = [
@@ -97,6 +98,15 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const prevPathnameRef = useRef(pathname);
+
+  // Close sidebar on route change to prevent "site within a site" on mobile
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname && isOpen) {
+      onClose();
+    }
+    prevPathnameRef.current = pathname;
+  }, [pathname, isOpen, onClose]);
 
   return (
     <aside
@@ -160,7 +170,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              onClick={onClose}   /* auto-close on mobile when navigating */
+              onClick={onClose}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors relative',
                 isActive ? 'active-nav-link' : 'inactive-nav-link',

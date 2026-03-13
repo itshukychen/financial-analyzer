@@ -27,14 +27,8 @@
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────────── */
-html {
-  height: 100vh;
-  overflow: hidden;
-}
 
 body {
-  height: 100vh;
-  overflow: hidden;
   margin: 0;
   padding: 0;
   background: var(--bg);

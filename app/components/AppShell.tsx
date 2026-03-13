@@ -15,7 +15,7 @@ export default function AppShell({ children }: AppShellProps) {
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="flex min-h-screen" style={{ background: 'var(--bg)' }}>
 
       {/* Mobile backdrop — tap to close */}
       <div
@@ -33,7 +33,7 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar onMenuClick={openSidebar} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <main className="flex-1 overflow-x-hidden p-4 md:p-6">
           {children}
         </main>
       </div>

@@ -12,7 +12,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
 
   return (
     <header
-      className="flex items-center justify-between px-4 md:px-6 py-3 border-b shrink-0"
+      className="sticky top-0 z-10 flex items-center justify-between px-4 md:px-6 py-3 border-b shrink-0"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
     >
       {/* Hamburger — mobile only */}

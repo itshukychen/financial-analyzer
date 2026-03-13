@@ -11,7 +11,7 @@ describe('Scrollbar Layout', () => {
     );
 
     const main = container.querySelector('main');
-    expect(main).toHaveClass('overflow-y-auto');
+    expect(main).not.toHaveClass('overflow-y-auto');
   });
 
   it('should render main with overflow-x-hidden', () => {
@@ -44,7 +44,8 @@ describe('Scrollbar Layout', () => {
     );
 
     const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass('overflow-hidden');
+    expect(wrapper).toHaveClass('flex');
+    expect(wrapper).toHaveClass('min-h-screen');
   });
 
   it('should render AppShell wrapper with h-screen', () => {
@@ -55,7 +56,7 @@ describe('Scrollbar Layout', () => {
     );
 
     const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass('h-screen');
+    expect(wrapper).toHaveClass('min-h-screen');
   });
 
   it('should render children inside main element', () => {

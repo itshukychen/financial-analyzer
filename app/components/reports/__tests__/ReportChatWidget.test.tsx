@@ -5,11 +5,14 @@ import ReportChatWidget from '../ReportChatWidget';
 // Mock fetch
 global.fetch = vi.fn();
 
+// Properly type the mock
+const mockFetch = global.fetch as unknown as jest.MockedFunction<typeof fetch>;
+
 describe('ReportChatWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
-    (global.fetch as any).mockClear();
+    mockFetch.mockClear();
   });
 
   it('renders with empty state', () => {
@@ -26,7 +29,7 @@ describe('ReportChatWidget', () => {
   });
 
   it('submits question and displays answer', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ answer: 'VIX is 18.2', tokensUsed: { input: 100, output: 50 } }),
     });
@@ -51,7 +54,7 @@ describe('ReportChatWidget', () => {
   });
 
   it('displays user question in chat', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ answer: 'Test answer', tokensUsed: { input: 100, output: 50 } }),
     });
@@ -76,7 +79,7 @@ describe('ReportChatWidget', () => {
   });
 
   it('clears history when clear button clicked', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ answer: 'Test answer', tokensUsed: { input: 100, output: 50 } }),
     });
@@ -107,7 +110,7 @@ describe('ReportChatWidget', () => {
   });
 
   it('shows error on API failure', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    mockFetch.mockResolvedValueOnce({
       ok: false,
       json: async () => ({ error: 'API error' }),
     });
@@ -184,7 +187,7 @@ describe('ReportChatWidget', () => {
   });
 
   it('shows loading spinner during API call', async () => {
-    (global.fetch as any).mockImplementationOnce(
+    mockFetch.mockImplementationOnce(
       () =>
         new Promise((resolve) =>
           setTimeout(

@@ -9,76 +9,67 @@ test.describe('Navigation', () => {
 
   test('all 5 nav links are present on the sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     for (const label of ['Dashboard', 'Markets', 'Reports', 'Watchlist', 'Alerts']) {
-      await expect(page.getByRole('link', { name: label })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole('link', { name: label })).toBeVisible();
     }
   });
 
   test('navigating to /markets shows Markets page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Markets' }).click();
-    await expect(page).toHaveURL('/markets', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Markets', { timeout: 10_000 });
+    await expect(page).toHaveURL('/markets');
+    await expect(page.locator('h1')).toContainText('Markets');
   });
 
   test('navigating to /reports shows Reports page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Reports' }).click();
-    await expect(page).toHaveURL('/reports', { timeout: 10_000 });
+    await expect(page).toHaveURL('/reports');
     // h1 is "Daily Market Report" (not the old "Reports" stub heading)
-    await expect(page.locator('h1')).toContainText('Report', { timeout: 10_000 });
+    await expect(page.locator('h1')).toContainText('Report');
   });
 
   test('navigating to /watchlist shows Watchlist page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Watchlist' }).click();
-    await expect(page).toHaveURL('/watchlist', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Watchlist', { timeout: 10_000 });
+    await expect(page).toHaveURL('/watchlist');
+    await expect(page.locator('h1')).toContainText('Watchlist');
   });
 
   test('navigating to /alerts shows Alerts page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Alerts' }).click();
-    await expect(page).toHaveURL('/alerts', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Alerts', { timeout: 10_000 });
+    await expect(page).toHaveURL('/alerts');
+    await expect(page.locator('h1')).toContainText('Alerts');
   });
 
   test('Dashboard link navigates back to home from /markets', async ({ page }) => {
     await page.goto('/markets');
-    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Dashboard' }).click();
-    await expect(page).toHaveURL('/', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Dashboard', { timeout: 10_000 });
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('h1')).toContainText('Dashboard');
   });
 
   test('active nav link has active-nav-link class on /', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     const dashboardLink = page.getByRole('link', { name: 'Dashboard' });
-    await expect(dashboardLink).toHaveClass(/active-nav-link/, { timeout: 10_000 });
+    await expect(dashboardLink).toHaveClass(/active-nav-link/);
   });
 
   test('active nav link has active-nav-link class on /markets', async ({ page }) => {
     await page.goto('/markets');
-    await page.waitForLoadState('networkidle');
     const marketsLink = page.getByRole('link', { name: 'Markets' });
-    await expect(marketsLink).toHaveClass(/active-nav-link/, { timeout: 10_000 });
+    await expect(marketsLink).toHaveClass(/active-nav-link/);
     const dashboardLink = page.getByRole('link', { name: 'Dashboard' });
     // Use exact string — regex would false-positive on "inactive-nav-link"
-    await expect(dashboardLink).not.toHaveClass('active-nav-link', { timeout: 10_000 });
+    await expect(dashboardLink).not.toHaveClass('active-nav-link');
   });
 
   test('stub pages show Coming soon placeholder', async ({ page }) => {
     // /reports is now a real page — only remaining stubs show "Coming soon"
     for (const path of ['/markets', '/watchlist', '/alerts']) {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
-      await expect(page.getByText('Coming soon').first()).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText('Coming soon').first()).toBeVisible();
     }
   });
 });

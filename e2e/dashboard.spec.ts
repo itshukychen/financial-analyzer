@@ -8,23 +8,13 @@ test.describe('Dashboard', () => {
 
   test('page title contains FinAnalyzer', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveTitle(/FinAnalyzer|Financial/i, { timeout: 10_000 });
+    await expect(page).toHaveTitle(/FinAnalyzer|Financial/i);
   });
 
   test('loads without console errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        const text = msg.text();
-        // Filter out non-critical warnings
-        if (!text.includes('favicon') && 
-            !text.includes('_next') &&
-            !text.includes('ResizeObserver') &&
-            !text.includes('unknown variable')) {
-          errors.push(text);
-        }
-      }
+      if (msg.type() === 'error') errors.push(msg.text());
     });
     await page.goto('/');
     await page.waitForLoadState('networkidle');
@@ -33,8 +23,7 @@ test.describe('Dashboard', () => {
 
   test('shows Dashboard h1 heading', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toContainText('Dashboard', { timeout: 10_000 });
+    await expect(page.locator('h1')).toContainText('Dashboard');
   });
 
   test('all 5 chart labels are visible after data loads', async ({ page }) => {
@@ -65,10 +54,9 @@ test.describe('Dashboard', () => {
 
   test('placeholder widgets are present', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Daily Market Report')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Daily Market Report')).toBeVisible();
     const comingSoon = page.getByText('Coming soon');
-    await expect(comingSoon.first()).toBeVisible({ timeout: 10_000 });
+    await expect(comingSoon.first()).toBeVisible();
     expect(await comingSoon.count()).toBeGreaterThanOrEqual(1);
   });
 

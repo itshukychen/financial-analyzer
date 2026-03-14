@@ -3,10 +3,11 @@ export const dynamic = 'force-dynamic'; // always render from DB, never statical
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getReportByDate, type ReportPeriod } from '../../../lib/db';
-import PageHeader   from '../../components/PageHeader';
-import ReportHeader from '../../components/reports/ReportHeader';
-import ReportSection from '../../components/reports/ReportSection';
-import DataSnapshot  from '../../components/reports/DataSnapshot';
+import PageHeader        from '../../components/PageHeader';
+import ReportHeader      from '../../components/reports/ReportHeader';
+import ReportSection     from '../../components/reports/ReportSection';
+import DataSnapshot      from '../../components/reports/DataSnapshot';
+import ReportChatWidget  from '../../components/reports/ReportChatWidget';
 import type { DailyReport } from '../../../scripts/generate-report';
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
@@ -111,6 +112,13 @@ export default async function ReportDatePage({
           </p>
         </div>
       )}
+
+      {/* Chat widget */}
+      <ReportChatWidget
+        reportId={`${date}-${row.period}`}
+        reportDate={date}
+        reportPeriod={row.period}
+      />
     </>
   );
 }

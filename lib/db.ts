@@ -2,6 +2,122 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
+// ─── Schema (v5 — adds question_logs for AI Q&A) ──────────────────────────
+
+const SCHEMA_V5 = `
+  CREATE TABLE IF NOT EXISTS reports (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT    NOT NULL,
+    period       TEXT    NOT NULL DEFAULT 'eod',
+    generated_at INTEGER NOT NULL,
+    ticker_data  TEXT    NOT NULL,
+    report_json  TEXT    NOT NULL,
+    model        TEXT    NOT NULL DEFAULT 'claude-sonnet-4-5',
+    UNIQUE(date, period)
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(date DESC, period ASC);
+
+  CREATE TABLE IF NOT EXISTS question_logs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_id     TEXT    NOT NULL,
+    question      TEXT    NOT NULL,
+    answer        TEXT    NOT NULL,
+    tokens_input  INTEGER,
+    tokens_output INTEGER,
+    created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_question_logs_report 
+    ON question_logs(report_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_question_logs_created 
+    ON question_logs(created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS option_snapshots (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    date              TEXT    NOT NULL,
+    ticker            TEXT    NOT NULL,
+    expiry            TEXT    NOT NULL,
+    
+    iv_30d            REAL,
+    iv_60d            REAL,
+    hv_20d            REAL,
+    hv_60d            REAL,
+    iv_rank           INTEGER,
+    
+    net_delta         REAL,
+    atm_gamma         REAL,
+    vega_per_1pct     REAL,
+    theta_daily       REAL,
+    
+    call_otm_iv       REAL,
+    put_otm_iv        REAL,
+    skew_ratio        REAL,
+    
+    implied_move_pct  REAL,
+    
+    regime            TEXT,
+    raw_json          TEXT,
+    
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(date, ticker, expiry)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_snapshots_date 
+    ON option_snapshots(date DESC, ticker, expiry);
+
+  CREATE TABLE IF NOT EXISTS option_projections (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    date                    TEXT    NOT NULL,
+    ticker                  TEXT    NOT NULL,
+    horizon_days            INTEGER NOT NULL,
+    
+    prob_distribution       TEXT    NOT NULL,
+    key_levels              TEXT    NOT NULL,
+    
+    regime_classification   TEXT,
+    
+    created_at              INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(date, ticker, horizon_days)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_projections_date 
+    ON option_projections(date DESC, ticker);
+
+  CREATE TABLE IF NOT EXISTS option_prices (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker            TEXT    NOT NULL,
+    strike            REAL    NOT NULL,
+    expiry_date       TEXT    NOT NULL,
+    option_type       TEXT    NOT NULL DEFAULT 'call',
+    timestamp         INTEGER NOT NULL,
+    price             REAL    NOT NULL,
+    bid               REAL,
+    ask               REAL,
+    volume            INTEGER,
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    
+    UNIQUE(ticker, strike, expiry_date, option_type, timestamp)
+  );
+  CREATE INDEX IF NOT EXISTS idx_option_prices_lookup 
+    ON option_prices(ticker, strike, expiry_date, option_type, timestamp);
+  CREATE INDEX IF NOT EXISTS idx_option_prices_expiry 
+    ON option_prices(expiry_date);
+
+  CREATE TABLE IF NOT EXISTS ai_forecasts (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    date              TEXT    NOT NULL,
+    ticker            TEXT    NOT NULL,
+    forecast_json     TEXT    NOT NULL,
+    created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    expires_at        INTEGER NOT NULL,
+    
+    UNIQUE(date, ticker)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_lookup 
+    ON ai_forecasts(date DESC, ticker);
+  CREATE INDEX IF NOT EXISTS idx_ai_forecasts_expiry 
+    ON ai_forecasts(expires_at);
+`;
+
 // ─── Schema (v4 — adds option prices for chart overlay) ──────────────────────
 
 const SCHEMA_V4 = `
@@ -207,6 +323,16 @@ export interface ReportRow {
   model:        string;
 }
 
+export interface QuestionLogRow {
+  id:            number;
+  report_id:     string;
+  question:      string;
+  answer:        string;
+  tokens_input:  number | null;
+  tokens_output: number | null;
+  created_at:    number;
+}
+
 export interface OptionSnapshot {
   id:                number;
   date:              string;
@@ -309,11 +435,11 @@ export interface DbInstance {
   insertOrReplaceAnalysisCache(ticker: string, date: string, analysisJson: string, expiresAt: string): void;
   getAnalysisCache(ticker: string, date: string, allowStale?: boolean): AnalysisCacheRow | null;
   
-  insertOrReplaceAIForecast(date: string, ticker: string, forecastJson: object, expiresInHours?: number): { success: boolean; cached: boolean };
-  getAIForecast(date: string, ticker: string): { forecast_json: string; created_at: string } | null;
+  insertQuestionLog(reportId: string, question: string, answer: string, tokensInput: number, tokensOutput: number): QuestionLogRow;
+  getQuestionLogs(reportId: string, limit?: number): QuestionLogRow[];
 }
 
-// ─── Migration: v1 → v2 → v3 → v4 ──────────────────────────────────────────
+// ─── Migration: v1 → v2 → v3 → v4 → v5 ────────────────────────────────────
 
 function migrate(db: Database.Database): void {
   const cols = (db.pragma('table_info(reports)') as { name: string }[]).map(c => c.name);
@@ -326,13 +452,18 @@ function migrate(db: Database.Database): void {
   const hasAIForecasts = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_forecasts'"
   ).get();
+  const hasQuestionLogs = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='question_logs'"
+  ).get();
   
   // Migrate v1 → v2
   if (cols.includes('period')) {
     // v2 already or later
     if (hasOptionSnapshots) {
       if (hasOptionPrices) {
-        if (hasAIForecasts) return; // Already at v5
+        if (hasAIForecasts) {
+          if (hasQuestionLogs) return; // Already at v5
+        }
       }
     }
   } else {
@@ -458,6 +589,25 @@ function migrate(db: Database.Database): void {
         ON ai_forecasts(ticker, date DESC);
     `);
   }
+  
+  // Create v5 question_logs table if it doesn't exist
+  if (!hasQuestionLogs) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS question_logs (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_id     TEXT    NOT NULL,
+        question      TEXT    NOT NULL,
+        answer        TEXT    NOT NULL,
+        tokens_input  INTEGER,
+        tokens_output INTEGER,
+        created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_question_logs_report 
+        ON question_logs(report_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_question_logs_created 
+        ON question_logs(created_at DESC);
+    `);
+  }
 }
 
 /**
@@ -481,9 +631,9 @@ export function createDb(dbPath: string): DbInstance {
 
   // Create table if brand new, then migrate if upgrading
   try {
-    db.exec(SCHEMA_V4);
+    db.exec(SCHEMA_V5);
   } catch {
-    // Table may already exist with v1, v2, or v3 schema — migrate below
+    // Table may already exist with v1, v2, v3, or v4 schema — migrate below
   }
   migrate(db);
 
@@ -809,6 +959,61 @@ export function createDb(dbPath: string): DbInstance {
     }
   }
 
+  // ─── Question Logs CRUD ──────────────────────────────────────────────────────
+
+  function insertQuestionLog(
+    reportId: string,
+    question: string,
+    answer: string,
+    tokensInput: number,
+    tokensOutput: number,
+  ): QuestionLogRow {
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO question_logs (report_id, question, answer, tokens_input, tokens_output, created_at)
+        VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+      `);
+      const info = stmt.run(reportId, question, answer, tokensInput, tokensOutput);
+      
+      return {
+        id: typeof info.lastInsertRowid === 'number' ? info.lastInsertRowid : parseInt(String(info.lastInsertRowid)),
+        report_id: reportId,
+        question,
+        answer,
+        tokens_input: tokensInput,
+        tokens_output: tokensOutput,
+        created_at: Math.floor(Date.now() / 1000),
+      };
+    } catch (error) {
+      console.error('[Question Logs] Insert failed:', error);
+      throw error;
+    }
+  }
+
+  function getQuestionLogs(reportId: string, limit = 50): QuestionLogRow[] {
+    try {
+      const rows = db.prepare(`
+        SELECT 
+          id, 
+          report_id, 
+          question, 
+          answer, 
+          tokens_input, 
+          tokens_output, 
+          created_at
+        FROM question_logs
+        WHERE report_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `).all(reportId, limit) as QuestionLogRow[];
+      
+      return rows.reverse(); // Reverse to get chronological order
+    } catch (error) {
+      console.error('[Question Logs] Retrieval failed:', error);
+      return [];
+    }
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function parseOptionSnapshot(raw: Record<string, unknown>): OptionSnapshot {
@@ -841,6 +1046,8 @@ export function createDb(dbPath: string): DbInstance {
     getAIForecast,
     insertOrReplaceAnalysisCache,
     getAnalysisCache,
+    insertQuestionLog,
+    getQuestionLogs,
   };
 }
 
@@ -878,5 +1085,9 @@ export const getAIForecast             = _instance.getAIForecast.bind(_instance)
 // Analysis Cache
 export const insertOrReplaceAnalysisCache = _instance.insertOrReplaceAnalysisCache.bind(_instance);
 export const getAnalysisCache             = _instance.getAnalysisCache.bind(_instance);
+
+// Question Logs
+export const insertQuestionLog = _instance.insertQuestionLog.bind(_instance);
+export const getQuestionLogs   = _instance.getQuestionLogs.bind(_instance);
 
 export default _instance.db;

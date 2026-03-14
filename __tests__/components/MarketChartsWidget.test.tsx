@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe('MarketChartsWidget', () => {
-  it('renders exactly 7 chart labels: S&P 500, VIX, DX-Y, 10Y Yield, 2Y Yield, WTI, Brent', async () => {
+  it('renders exactly 5 chart labels: S&P 500, VIX, DX-Y, 10Y Yield, 2Y Yield', async () => {
     render(<MarketChartsWidget />);
     // Labels are rendered synchronously (not dependent on fetch)
     expect(screen.getByText('S&P 500')).toBeInTheDocument();
@@ -71,19 +71,17 @@ describe('MarketChartsWidget', () => {
     expect(screen.getByText('DX-Y')).toBeInTheDocument();
     expect(screen.getByText('10Y Yield')).toBeInTheDocument();
     expect(screen.getByText('2Y Yield')).toBeInTheDocument();
-    expect(screen.getByText('WTI')).toBeInTheDocument();
-    expect(screen.getByText('Brent')).toBeInTheDocument();
   });
 
-  it('makes 8 fetch calls on mount (7 charts + fear-greed)', async () => {
+  it('makes 6 fetch calls on mount (5 charts + fear-greed)', async () => {
     const fetchMock = vi.mocked(global.fetch as ReturnType<typeof vi.fn>);
     render(<MarketChartsWidget />);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(8);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     });
   });
 
-  it('fetches the correct tickers: ^GSPC, ^VIX, DX-Y.NYB, ^TNX, DGS2, CL=F, BZ=F', async () => {
+  it('fetches the correct tickers: ^GSPC, ^VIX, DX-Y.NYB, ^TNX, DGS2', async () => {
     const fetchMock = vi.mocked(global.fetch as ReturnType<typeof vi.fn>);
     render(<MarketChartsWidget />);
     await waitFor(() => {
@@ -93,8 +91,6 @@ describe('MarketChartsWidget', () => {
       expect(urls.some((u) => u.includes('DX-Y.NYB'))).toBe(true);
       expect(urls.some((u) => u.includes('%5ETNX'))).toBe(true);
       expect(urls.some((u) => u.includes('DGS2'))).toBe(true);
-      expect(urls.some((u) => u.includes('CL%3DF'))).toBe(true);
-      expect(urls.some((u) => u.includes('BZ%3DF'))).toBe(true);
     });
   });
 });

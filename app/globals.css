@@ -28,9 +28,14 @@
 
 /* ── Base ───────────────────────────────────────────────────────────────────── */
 
+html {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   padding: 0;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;

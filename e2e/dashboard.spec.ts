@@ -78,7 +78,8 @@ test.describe('Dashboard', () => {
     await expect(grid).toBeVisible();
   });
 
-  test('AC-1: WTI tile is visible with price and delta', async ({ page }) => {
+  test.skip('AC-1: WTI tile is visible with price and delta', async ({ page }) => {
+    // SKIPPED: WTI/Brent charts removed to reduce dashboard to 5 main charts
     await mockChartAPI(page);
     await page.goto('/');
     const wtiTile  = page.locator('[data-testid="ticker-tile-CL=F"]');
@@ -89,7 +90,8 @@ test.describe('Dashboard', () => {
     await expect(wtiDelta).not.toBeEmpty();
   });
 
-  test('AC-2: Brent tile is visible with price and delta', async ({ page }) => {
+  test.skip('AC-2: Brent tile is visible with price and delta', async ({ page }) => {
+    // SKIPPED: WTI/Brent charts removed to reduce dashboard to 5 main charts
     await mockChartAPI(page);
     await page.goto('/');
     const brentTile  = page.locator('[data-testid="ticker-tile-BZ=F"]');
@@ -100,7 +102,8 @@ test.describe('Dashboard', () => {
     await expect(brentDelta).not.toBeEmpty();
   });
 
-  test('AC-1: WTI tile appears after the 2Y tile in DOM order', async ({ page }) => {
+  test.skip('AC-1: WTI tile appears after the 2Y tile in DOM order', async ({ page }) => {
+    // SKIPPED: WTI/Brent charts removed to reduce dashboard to 5 main charts
     await mockChartAPI(page);
     await page.goto('/');
     // Collect all ticker-tile data-testid values in DOM order
@@ -113,7 +116,8 @@ test.describe('Dashboard', () => {
     expect(idxWTI).toBeGreaterThan(idx2Y);
   });
 
-  test('AC-8: WTI tile shows — on API error', async ({ page }) => {
+  test.skip('AC-8: WTI tile shows — on API error', async ({ page }) => {
+    // SKIPPED: WTI/Brent charts removed to reduce dashboard to 5 main charts
     await page.route('**/api/market/chart/CL*', (route) =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'fetch failed' }) })
     );

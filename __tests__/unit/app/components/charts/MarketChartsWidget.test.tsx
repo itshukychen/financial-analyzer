@@ -66,9 +66,9 @@ describe('MarketChartsWidget — layout', () => {
     expect(screen.getByTestId('market-charts-grid')).toBeInTheDocument();
   });
 
-  it('renders all 7 chart tiles', () => {
+  it('renders all 5 chart tiles', () => {
     render(<MarketChartsWidget />);
-    const tickers = ['^GSPC', '^VIX', 'DX-Y.NYB', '^TNX', 'DGS2', 'CL=F', 'BZ=F'];
+    const tickers = ['^GSPC', '^VIX', 'DX-Y.NYB', '^TNX', 'DGS2'];
     for (const ticker of tickers) {
       expect(screen.getByTestId(`ticker-tile-${ticker}`)).toBeInTheDocument();
     }
@@ -134,11 +134,5 @@ describe('MarketChartsWidget — modal open/close (branch coverage)', () => {
     render(<MarketChartsWidget />);
     fireEvent.click(screen.getByTestId('ticker-tile-^VIX'));
     expect(screen.getByTestId('chart-modal').getAttribute('data-label')).toBe('VIX');
-  });
-
-  it('modal label matches the clicked tile for WTI oil', () => {
-    render(<MarketChartsWidget />);
-    fireEvent.click(screen.getByTestId('ticker-tile-CL=F'));
-    expect(screen.getByTestId('chart-modal').getAttribute('data-label')).toBe('WTI');
   });
 });

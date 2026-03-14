@@ -11,7 +11,7 @@ describe('Scrollbar Layout', () => {
     );
 
     const main = container.querySelector('main');
-    expect(main).not.toHaveClass('overflow-y-auto');
+    expect(main).toHaveClass('overflow-y-auto');
   });
 
   it('should render main with overflow-x-hidden', () => {

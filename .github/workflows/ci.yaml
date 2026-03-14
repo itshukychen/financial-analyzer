@@ -43,7 +43,34 @@ jobs:
             fi
           fi
 
-  # ── 2. Deploy to production (main only) ──────────────────────────────────────
+  # ── 2. E2E tests on PRs (pull_request only) ────────────────────────────────────
+  e2e-pr:
+    name: E2E tests on PR (Playwright / Chromium)
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build app for E2E
+        run: npm run build
+      - name: Install Playwright + system deps
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E tests
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-pr
+          path: playwright-report/
+
+  # ── 3. Deploy to production (main only) ──────────────────────────────────────
   deploy:
     name: Deploy to production
     needs: test
@@ -54,7 +81,7 @@ jobs:
       - name: Run deploy script
         run: bash /home/claw/repos/financial-analyzer/deploy.sh
 
-  # ── 3. E2E tests against live prod (main only, after deploy) ─────────────────
+  # ── 4. E2E tests against live prod (main only, after deploy) ─────────────────
   e2e:
     name: E2E tests (Playwright / Chromium)
     needs: deploy

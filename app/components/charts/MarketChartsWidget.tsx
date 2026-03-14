@@ -38,8 +38,6 @@ const CHARTS: ChartConfig[] = [
     label: '2Y Yield',
     formatValue: (v: number) => v.toFixed(2) + '%',
   },
-  { ticker: 'CL=F', label: 'WTI',   formatValue: (v: number) => '$' + v.toFixed(2) },
-  { ticker: 'BZ=F', label: 'Brent', formatValue: (v: number) => '$' + v.toFixed(2) },
 ];
 
 export default function MarketChartsWidget() {

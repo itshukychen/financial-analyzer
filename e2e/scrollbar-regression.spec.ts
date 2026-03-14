@@ -53,6 +53,13 @@ test.describe('No Double Scrollbars', () => {
   test('Reports: content should scroll within main element', async ({ page }) => {
     await page.goto('/reports');
 
+    // Verify main element has overflow-y-auto to enable scrolling
+    const mainOverflow = await page.evaluate(() => {
+      const main = document.querySelector('main');
+      return main ? window.getComputedStyle(main).overflowY : null;
+    });
+    expect(mainOverflow).toBe('auto');
+
     // Scroll main element
     await page.evaluate(() => {
       const main = document.querySelector('main');

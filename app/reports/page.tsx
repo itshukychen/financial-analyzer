@@ -5,6 +5,7 @@ import PageHeader        from '../components/PageHeader';
 import ReportHeader      from '../components/reports/ReportHeader';
 import ReportSection     from '../components/reports/ReportSection';
 import DataSnapshot      from '../components/reports/DataSnapshot';
+import ReportChatWidget  from '../components/reports/ReportChatWidget';
 import type { DailyReport } from '../../scripts/generate-report';
 
 // ─── Icon helpers (inline SVGs) ───────────────────────────────────────────────
@@ -145,6 +146,13 @@ export default function ReportsPage() {
               </p>
             </div>
           )}
+
+          {/* Chat widget */}
+          <ReportChatWidget
+            reportId={`${report.date}-${period || 'eod'}`}
+            reportDate={report.date}
+            reportPeriod={period || 'eod'}
+          />
 
           {/* Archive */}
           {archive.length > 0 && (

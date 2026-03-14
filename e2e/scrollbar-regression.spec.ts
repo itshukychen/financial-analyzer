@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('No Double Scrollbars', () => {
   test('Dashboard: html and body should have overflow hidden', async ({ page }) => {
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
 
     const htmlOverflow = await page.evaluate(() =>
       window.getComputedStyle(document.documentElement).overflow
@@ -16,7 +16,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Dashboard: main element should have overflow-y auto', async ({ page }) => {
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
 
     const mainOverflow = await page.evaluate(() => {
       const main = document.querySelector('main');
@@ -26,7 +26,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Dashboard: main element should have overflow-x hidden', async ({ page }) => {
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
 
     const mainOverflowX = await page.evaluate(() => {
       const main = document.querySelector('main');
@@ -36,7 +36,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Reports: should show single scrollbar', async ({ page }) => {
-    await page.goto('http://localhost:3002/reports');
+    await page.goto('/reports');
 
     const htmlOverflow = await page.evaluate(() =>
       window.getComputedStyle(document.documentElement).overflow
@@ -51,7 +51,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Reports: content should scroll within main element', async ({ page }) => {
-    await page.goto('http://localhost:3002/reports');
+    await page.goto('/reports');
 
     // Scroll main element
     await page.evaluate(() => {
@@ -68,7 +68,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Watchlist: should have single scrollbar', async ({ page }) => {
-    await page.goto('http://localhost:3002/watchlist');
+    await page.goto('/watchlist');
 
     const htmlOverflow = await page.evaluate(() =>
       window.getComputedStyle(document.documentElement).overflow
@@ -83,7 +83,7 @@ test.describe('No Double Scrollbars', () => {
   });
 
   test('Sidebar toggle should not affect scrollbar', async ({ page }) => {
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
 
     // Find and click sidebar toggle (if visible)
     const toggleButton = page.locator('button').filter({ hasText: /menu|toggle/i }).first();

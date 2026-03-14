@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AppShell from '@/app/components/AppShell';
 import StatCard from '@/app/components/StatCard';
 
 interface SnapshotData {
@@ -94,44 +93,39 @@ export default function OptionProjectionReport() {
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="inline-block animate-spin">⟳</div>
-            <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
-              Loading option analysis...
-            </p>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin">⟳</div>
+          <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
+            Loading option analysis...
+          </p>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   if (error || !snapshot || !projection) {
     return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <p style={{ color: 'var(--loss)', fontSize: '1.125rem', fontWeight: '600' }}>
-              Unable to load report
-            </p>
-            {error && (
-              <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{error}</p>
-            )}
-            <Link href="/" className="text-sm" style={{ color: 'var(--accent)' }}>
-              ← Back to dashboard
-            </Link>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p style={{ color: 'var(--loss)', fontSize: '1.125rem', fontWeight: '600' }}>
+            Unable to load report
+          </p>
+          {error && (
+            <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{error}</p>
+          )}
+          <Link href="/" className="text-sm" style={{ color: 'var(--accent)' }}>
+            ← Back to dashboard
+          </Link>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   const ivSpread = snapshot.volatility.iv_30d - snapshot.volatility.hv_20d;
 
   return (
-    <AppShell>
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
         {/* Custom header for option projection report */}
         <div
           className="rounded-xl border p-6 mb-6"
@@ -263,7 +257,6 @@ export default function OptionProjectionReport() {
           </Link>
         </div>
       </div>
-    </AppShell>
   );
 }
 

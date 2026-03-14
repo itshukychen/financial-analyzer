@@ -49,7 +49,7 @@ vi.mock('@/lib/ai/report-qa-client', () => ({
   })),
 }));
 
-describe('POST /api/reports/[reportId]/ask', () => {
+describe('POST /api/reports/[date]/ask', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -61,7 +61,7 @@ describe('POST /api/reports/[reportId]/ask', () => {
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: '2026-03-14-morning' }),
+      params: Promise.resolve({ date: '2026-03-14-morning' }),
     });
 
     expect(response.status).toBe(200);
@@ -70,14 +70,14 @@ describe('POST /api/reports/[reportId]/ask', () => {
     expect(data.tokensUsed).toHaveProperty('input');
   });
 
-  it('returns 400 for invalid reportId format', async () => {
+  it('returns 400 for invalid date format', async () => {
     const mockRequest = new Request('http://localhost/api/reports/invalid/ask', {
       method: 'POST',
       body: JSON.stringify({ question: 'What is VIX?' }),
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: 'invalid-format' }),
+      params: Promise.resolve({ date: 'invalid-format' }),
     });
 
     expect(response.status).toBe(400);
@@ -92,7 +92,7 @@ describe('POST /api/reports/[reportId]/ask', () => {
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: '2026-03-14' }),
+      params: Promise.resolve({ date: '2026-03-14' }),
     });
 
     expect(response.status).toBe(400);
@@ -107,7 +107,7 @@ describe('POST /api/reports/[reportId]/ask', () => {
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: '2026-03-14' }),
+      params: Promise.resolve({ date: '2026-03-14' }),
     });
 
     expect(response.status).toBe(400);
@@ -121,7 +121,7 @@ describe('POST /api/reports/[reportId]/ask', () => {
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: '2026-03-14' }),
+      params: Promise.resolve({ date: '2026-03-14' }),
     });
 
     expect(response.status).toBe(400);
@@ -136,7 +136,7 @@ describe('POST /api/reports/[reportId]/ask', () => {
     });
 
     const response = await POST(mockRequest, {
-      params: Promise.resolve({ reportId: '2025-01-01' }),
+      params: Promise.resolve({ date: '2025-01-01' }),
     });
 
     expect(response.status).toBe(404);

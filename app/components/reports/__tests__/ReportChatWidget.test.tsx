@@ -21,7 +21,7 @@ describe('ReportChatWidget', () => {
       />
     );
 
-    expect(screen.getByText(/Ask a question about this report/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Ask a Question About This Report/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Type your question/i)).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('ReportChatWidget', () => {
     const clearButton = screen.getByText('Clear History');
     fireEvent.click(clearButton);
 
-    expect(screen.getByText(/Ask a question about this report/i)).toBeInTheDocument();
+    expect(screen.getByText(/📝 Ask a question about this report to get started/i)).toBeInTheDocument();
     expect(screen.queryByText('Test question?')).not.toBeInTheDocument();
   });
 

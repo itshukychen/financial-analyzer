@@ -16,17 +16,17 @@ function parseReportId(reportId: string): { date: string; period?: ReportPeriod 
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ reportId: string }> }
+  context: { params: Promise<{ date: string }> }
 ) {
   try {
-    const { reportId } = await context.params;
+    const { date } = await context.params;
     const body = (await request.json()) as { question?: string };
 
-    // Validate reportId format
-    const parsed = parseReportId(reportId);
+    // Validate date format (can be YYYY-MM-DD or YYYY-MM-DD-period)
+    const parsed = parseReportId(date);
     if (!parsed) {
       return NextResponse.json(
-        { error: 'Invalid reportId format. Expected: YYYY-MM-DD or YYYY-MM-DD-period' },
+        { error: 'Invalid date format. Expected: YYYY-MM-DD or YYYY-MM-DD-period' },
         { status: 400 }
       );
     }
@@ -90,9 +90,9 @@ export async function POST(
     }
     clearTimeout(timeoutId);
 
-    // Log to database
+    // Log to database - use parsed.date as report_id
     insertQuestionLog(
-      reportId,
+      parsed.date,
       question.trim(),
       result.answer,
       result.tokensUsed.input,

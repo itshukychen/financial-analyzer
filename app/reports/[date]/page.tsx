@@ -7,7 +7,7 @@ import PageHeader        from '../../components/PageHeader';
 import ReportHeader      from '../../components/reports/ReportHeader';
 import ReportSection     from '../../components/reports/ReportSection';
 import DataSnapshot      from '../../components/reports/DataSnapshot';
-import ReportChatWidget  from '../../components/reports/ReportChatWidget';
+import FloatingChatBubble from '../../components/reports/FloatingChatBubble';
 import type { DailyReport } from '../../../scripts/generate-report';
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
@@ -113,8 +113,8 @@ export default async function ReportDatePage({
         </div>
       )}
 
-      {/* Chat widget */}
-      <ReportChatWidget
+      {/* Floating chat bubble */}
+      <FloatingChatBubble
         reportId={`${date}-${row.period}`}
         reportDate={date}
         reportPeriod={row.period}

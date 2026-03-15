@@ -8,6 +8,7 @@ interface ReportChatWidgetProps {
   reportId: string;
   reportDate: string;
   reportPeriod: string;
+  isFloating?: boolean;
 }
 
 // Fallback UUID generator for browsers that don't support crypto.randomUUID
@@ -25,6 +26,7 @@ function generateUUID(): string {
 
 export default function ReportChatWidget({
   reportId,
+  isFloating = false,
 }: ReportChatWidgetProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -102,6 +104,29 @@ export default function ReportChatWidget({
     setError(null);
   };
 
+  if (isFloating) {
+    return (
+      <div className="flex flex-col h-full">
+        {error && (
+          <div className="mb-3 p-2 bg-red-900/20 border border-red-700 rounded-lg text-red-400 text-xs" data-testid="chat-error">
+            {error}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto mb-3">
+          <ChatMessageList messages={messages} />
+        </div>
+
+        <ChatInput
+          onSubmit={handleAskQuestion}
+          onClear={handleClearHistory}
+          isLoading={isLoading}
+          disabled={false}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mt-8 rounded-xl border border-gray-700 bg-gray-900 p-6">
       <h3 className="text-lg font-semibold mb-4 text-gray-100">
@@ -109,7 +134,7 @@ export default function ReportChatWidget({
       </h3>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-900/20 border border-red-700 rounded-lg text-red-400 text-sm">
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-700 rounded-lg text-red-400 text-sm" data-testid="chat-error">
           {error}
         </div>
       )}

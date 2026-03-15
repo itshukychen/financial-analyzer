@@ -147,13 +147,6 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Floating chat bubble */}
-          <FloatingChatBubble
-            reportId={`${report.date}-${period || 'eod'}`}
-            reportDate={report.date}
-            reportPeriod={period || 'eod'}
-          />
-
           {/* Archive */}
           {archive.length > 0 && (
             <div
@@ -192,6 +185,13 @@ export default function ReportsPage() {
           )}
         </>
       )}
+
+      {/* Floating chat bubble — always visible regardless of report availability */}
+      <FloatingChatBubble
+        reportId={report ? `${report.date}-${period || 'eod'}` : 'none'}
+        reportDate={report?.date || ''}
+        reportPeriod={period || 'eod'}
+      />
     </>
   );
 }

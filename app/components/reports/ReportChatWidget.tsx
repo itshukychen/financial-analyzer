@@ -13,6 +13,10 @@ interface ReportChatWidgetProps {
 
 export default function ReportChatWidget({
   reportId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  reportDate,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  reportPeriod,
   isFloating = false,
 }: ReportChatWidgetProps) {
   const [messages, setMessages] = useState<Message[]>([]);
